@@ -130,7 +130,7 @@ func _physics_process(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
 	else:
 		var running := not locked and Input.is_action_pressed("run")
-		var target := dir * SPEED * float(form["speed"]) * (RUN_MULT if running else 1.0)
+		var target := dir * SPEED * float(form["speed"]) * (1.0 + Game.equip_bonus("speed")) * (RUN_MULT if running else 1.0)
 		velocity.x = move_toward(velocity.x, target, ACCEL * delta)
 		if dir != 0.0:
 			facing = 1 if dir > 0.0 else -1
@@ -226,7 +226,7 @@ func _tick_timers(delta: float) -> void:
 # ---------- โจมตี ----------
 
 func _damage(mult: float) -> float:
-	return BASE_ATK * Game.atk_mult() * float(Game.current_form()["atk"]) * mult * randf_range(0.9, 1.1)
+	return (BASE_ATK + Game.equip_bonus("atk")) * Game.atk_mult() * float(Game.current_form()["atk"]) * mult * randf_range(0.9, 1.1)
 
 
 func _basic_attack() -> void:
@@ -332,7 +332,9 @@ func _process_dash_hits() -> void:
 
 ## ใช้ไอเทมจากช่อง 1-7
 func use_item(id: String) -> void:
-	if id == "potion":
+	if Game.ITEMS[id].has("slot"):
+		Game.equip(id)
+	elif id == "potion":
 		if Game.hp >= Game.max_hp:
 			Game.banner.emit("เลือดเต็มอยู่แล้ว")
 		else:

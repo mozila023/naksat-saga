@@ -19,17 +19,25 @@ const ITEMS := {
 	"potion": {"name": "ยาแดง", "desc": "ฟื้นเลือด 50 (กด F เพื่อดื่ม)", "icon": "potion", "tab": "item", "buy": 20, "sell": 0},
 	"frog_leg": {"name": "ขากบ", "desc": "ได้จากกบนา ขายให้ลุงหมูได้", "icon": "frog_leg", "tab": "etc", "buy": 0, "sell": 6},
 	"mushroom_cap": {"name": "หมวกเห็ดพิษ", "desc": "ได้จากเห็ดพิษ ขายให้ลุงหมูได้", "icon": "mushroom_cap", "tab": "etc", "buy": 0, "sell": 12},
+	# อุปกรณ์สวมใส่: slot = ช่องที่ใส่, atk = พลังโจมตีเพิ่ม, hp = เลือดสูงสุดเพิ่ม, speed = ความเร็วเพิ่ม (0.08 = 8%)
+	"wood_sword": {"name": "ดาบไม้", "desc": "", "icon": "wood_sword", "tab": "equip", "slot": "weapon", "atk": 3.0, "buy": 0, "sell": 15},
+	"straw_hat": {"name": "งอบ", "desc": "", "icon": "straw_hat", "tab": "equip", "slot": "head", "hp": 20.0, "buy": 0, "sell": 12},
+	"pha_khao_ma": {"name": "ผ้าขาวม้า", "desc": "", "icon": "pha_khao_ma", "tab": "equip", "slot": "body", "hp": 30.0, "buy": 0, "sell": 15},
+	"sandals": {"name": "รองเท้าหนัง", "desc": "", "icon": "sandals", "tab": "equip", "slot": "feet", "speed": 0.08, "buy": 0, "sell": 12},
+	"amulet": {"name": "เหรียญนำโชค", "desc": "", "icon": "amulet", "tab": "equip", "slot": "charm", "atk": 2.0, "hp": 15.0, "buy": 0, "sell": 40},
 	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 0},
 }
 const POTION_HEAL := 50.0
+# ช่องอุปกรณ์สวมใส่ในหน้าตัวละคร: [รหัสช่อง, ชื่อที่แสดง]
+const EQUIP_SLOTS := [["weapon", "อาวุธ"], ["head", "หมวก"], ["body", "ชุด"], ["feet", "รองเท้า"], ["charm", "เครื่องราง"]]
 const MAX_LEVEL := 150  # เลเวลสูงสุด
 
 # ---------- รางวัลจากมอนสเตอร์ ----------
 # coins = [จำนวนเหรียญต่ำสุด, สูงสุด], coin_value = [มูลค่าต่อเหรียญต่ำสุด, สูงสุด], drops = [[ไอเทม, โอกาส 0..1], ...]
 const REWARDS := {
-	"frog": {"exp": 8, "coins": [1, 2], "coin_value": [2, 4], "drops": [["frog_leg", 0.4], ["potion", 0.012]]},
-	"mushroom": {"exp": 18, "coins": [1, 3], "coin_value": [3, 6], "drops": [["mushroom_cap", 0.4], ["potion", 0.025]]},
-	"tiger": {"exp": 250, "coins": [8, 8], "coin_value": [10, 14], "drops": [["tiger_fang", 1.0], ["potion", 1.0]]},
+	"frog": {"exp": 8, "coins": [1, 2], "coin_value": [2, 4], "drops": [["frog_leg", 0.4], ["potion", 0.012], ["straw_hat", 0.02], ["sandals", 0.02]]},
+	"mushroom": {"exp": 18, "coins": [1, 3], "coin_value": [3, 6], "drops": [["mushroom_cap", 0.4], ["potion", 0.025], ["wood_sword", 0.03], ["pha_khao_ma", 0.03]]},
+	"tiger": {"exp": 250, "coins": [8, 8], "coin_value": [10, 14], "drops": [["tiger_fang", 1.0], ["potion", 1.0], ["amulet", 1.0]]},
 }
 
 var main: Node
@@ -50,7 +58,8 @@ var frog_kills := 0
 var level := 1
 var exp := 0
 var money := 0
-var items := {"potion": 2}  # รหัสไอเทม -> จำนวน
+var items := {"potion": 2, "wood_sword": 1}  # รหัสไอเทม -> จำนวน
+var equipped := {}  # รหัสช่อง -> รหัสไอเทมที่สวมอยู่
 const HOTBAR_SIZE := 7
 var hotbar: Array = ["", "", "", "", "", "", ""]  # ช่องไอเทม 1-7 (รหัสไอเทม หรือ "" = ว่าง)
 
@@ -213,7 +222,50 @@ func atk_mult() -> float:
 
 
 func _apply_level() -> void:
-	max_hp = 100.0 + (level - 1) * 15.0
+	max_hp = 100.0 + (level - 1) * 15.0 + equip_bonus("hp")
+
+
+# ---------- อุปกรณ์สวมใส่ ----------
+
+## ผลรวมค่าพลังจากอุปกรณ์ที่สวมอยู่ (stat = "atk" / "hp" / "speed")
+func equip_bonus(stat: String) -> float:
+	var total := 0.0
+	for slot in equipped:
+		total += float(ITEMS[equipped[slot]].get(stat, 0.0))
+	return total
+
+
+## สวมอุปกรณ์จากกระเป๋า (ของเดิมในช่องนั้นกลับเข้ากระเป๋า) คืนค่า true ถ้าสวมได้
+func equip(id: String) -> bool:
+	if not ITEMS.has(id) or not ITEMS[id].has("slot") or item_count(id) <= 0:
+		return false
+	var slot: String = ITEMS[id]["slot"]
+	var old: String = equipped.get(slot, "")
+	items[id] = item_count(id) - 1
+	if items[id] <= 0:
+		items.erase(id)
+	if old != "":
+		items[old] = item_count(old) + 1
+	equipped[slot] = id
+	_after_equip_change()
+	return true
+
+
+## ถอดอุปกรณ์ออกจากช่อง กลับเข้ากระเป๋า
+func unequip(slot: String) -> void:
+	var old: String = equipped.get(slot, "")
+	if old == "":
+		return
+	equipped.erase(slot)
+	items[old] = item_count(old) + 1
+	_after_equip_change()
+
+
+func _after_equip_change() -> void:
+	_apply_level()
+	set_hp(minf(hp, max_hp))
+	stats_changed.emit()
+	save_game()
 
 
 func add_exp(amount: int) -> void:
@@ -401,6 +453,8 @@ func save_game() -> void:
 	cfg.set_value("game", "items", items)
 	cfg.set_value("game", "hotbar", hotbar)
 	cfg.set_value("audio", "muted", Sound.muted)
+	cfg.set_value("game", "equipped", equipped)
+	cfg.set_value("game", "starter_gear", true)
 	cfg.save(SAVE_PATH)
 
 
@@ -424,6 +478,13 @@ func load_game() -> void:
 		if ITEMS.has(id):
 			items[id] = int(saved_items[id])
 	Sound.set_muted(bool(cfg.get_value("audio", "muted", false)))
+	equipped = {}
+	var saved_equip: Dictionary = cfg.get_value("game", "equipped", {})
+	for slot in saved_equip:
+		if ITEMS.has(saved_equip[slot]) and ITEMS[saved_equip[slot]].get("slot", "") == slot:
+			equipped[slot] = saved_equip[slot]
+	if not cfg.get_value("game", "starter_gear", false):
+		items["wood_sword"] = item_count("wood_sword") + 1  # เซฟเก่า: แจกดาบไม้เริ่มต้น 1 เล่ม
 	var saved_bar: Array = cfg.get_value("game", "hotbar", [])
 	for i in mini(saved_bar.size(), HOTBAR_SIZE):
 		hotbar[i] = saved_bar[i] if ITEMS.has(saved_bar[i]) else ""
@@ -439,7 +500,8 @@ func reset_save() -> void:
 	level = 1
 	exp = 0
 	money = 0
-	items = {"potion": 2}
+	items = {"potion": 2, "wood_sword": 1}
+	equipped = {}
 	hotbar = ["", "", "", "", "", "", ""]
 	_apply_level()
 	hp = max_hp

@@ -23,6 +23,7 @@ var _char: Panel
 var _char_pic: TextureRect
 var _char_name: Label
 var _char_stats: Label
+var _equip_slots: Array = []
 var _tab_buttons := {}
 var _quest_label: Label
 var _forms_label: Label
@@ -285,10 +286,67 @@ class HotSlot extends Panel:
 		Game.set_hotbar(index, data["item"])
 
 
-## แถวไอเทมในกระเป๋า (ลากไปใส่ช่อง 1-7 ได้)
+## ช่องอุปกรณ์สวมใส่ในหน้าตัวละคร
+class EquipSlot extends Panel:
+	var slot := ""
+	var title := ""
+	var hud: Hud
+	var _icon: TextureRect
+	var _name: Label
+
+	func build() -> void:
+		add_theme_stylebox_override("panel", hud._box(Color(0.93, 0.88, 0.76), 10))
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		_icon = hud._icon("coin", 30)
+		_icon.position = Vector2(6, 5)
+		_icon.size = Vector2(30, 30)
+		add_child(_icon)
+		_name = hud._label("", 15, Color(0.3, 0.18, 0.08), 0)
+		_name.position = Vector2(40, 0)
+		_name.size = Vector2(84, 40)
+		_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_name.clip_text = true
+		add_child(_name)
+		refresh()
+
+	func refresh() -> void:
+		var id: String = Game.equipped.get(slot, "")
+		_icon.visible = id != ""
+		if id == "":
+			_name.text = title
+			_name.position.x = 0
+			_name.size.x = 126
+			_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			_name.add_theme_color_override("font_color", Color(0.6, 0.5, 0.4))
+		else:
+			_icon.texture = load("res://assets/art/items/item_%s.png" % Game.ITEMS[id]["icon"])
+			_name.text = Game.ITEMS[id]["name"]
+			_name.position.x = 40
+			_name.size.x = 84
+			_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			_name.add_theme_color_override("font_color", Color(0.3, 0.18, 0.08))
+
+	func _can_drop_data(_at: Vector2, data: Variant) -> bool:
+		return data is Dictionary and data.has("item") and Game.ITEMS[data["item"]].get("slot", "") == slot
+
+	func _drop_data(_at: Vector2, data: Variant) -> void:
+		Game.equip(data["item"])
+
+	func _gui_input(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed:
+			if event.button_index == MOUSE_BUTTON_RIGHT or (event.button_index == MOUSE_BUTTON_LEFT and event.double_click):
+				Game.unequip(slot)
+
+
+## แถวไอเทมในกระเป๋า (ลากไปใส่ช่อง 1-7 หรือช่องอุปกรณ์ได้ / ดับเบิลคลิกเพื่อสวมหรือใช้)
 class BagRow extends HBoxContainer:
 	var item := ""
 	var hud: Hud
+
+	func _gui_input(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
+			if Game.player and not Game.player.dead:
+				Game.player.use_item(item)
 
 	func _get_drag_data(_at: Vector2) -> Variant:
 		set_drag_preview(hud._icon(Game.ITEMS[item]["icon"], 44))
@@ -301,8 +359,8 @@ func _build_bag() -> void:
 	_bag = Panel.new()
 	_bag.add_theme_stylebox_override("panel", _box(Color(1.0, 0.97, 0.88, 0.98), 18))
 	_bag.set_anchors_preset(Control.PRESET_CENTER)
-	_bag.position = Vector2(-150, -230)
-	_bag.size = Vector2(600, 440)
+	_bag.position = Vector2(-150, -260)
+	_bag.size = Vector2(600, 500)
 	_bag.visible = false
 	_root.add_child(_bag)
 	var title := _label("กระเป๋า", 30, Color(0.85, 0.4, 0.15), 0)
@@ -327,7 +385,7 @@ func _build_bag() -> void:
 		_tab_buttons[tabs[i][0]] = b
 	_bag_list = VBoxContainer.new()
 	_bag_list.position = Vector2(28, 132)
-	_bag_list.size = Vector2(544, 290)
+	_bag_list.size = Vector2(544, 350)
 	_bag_list.add_theme_constant_override("separation", 10)
 	_bag.add_child(_bag_list)
 
@@ -343,8 +401,8 @@ func _build_char() -> void:
 	_char = Panel.new()
 	_char.add_theme_stylebox_override("panel", _box(Color(1.0, 0.97, 0.88, 0.98), 18))
 	_char.set_anchors_preset(Control.PRESET_CENTER)
-	_char.position = Vector2(-470, -230)
-	_char.size = Vector2(308, 440)
+	_char.position = Vector2(-470, -260)
+	_char.size = Vector2(308, 500)
 	_char.visible = false
 	_root.add_child(_char)
 	var title := _label("ตัวละคร", 30, Color(0.85, 0.4, 0.15), 0)
@@ -364,25 +422,22 @@ func _build_char() -> void:
 	_char_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_char_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(_char_pic)
-	# ช่องอุปกรณ์สวมใส่ (ยังว่าง)
-	var names := ["อาวุธ", "ชุด", "เครื่องราง"]
-	for i in names.size():
-		var slot := Panel.new()
-		slot.add_theme_stylebox_override("panel", _box(Color(0.93, 0.88, 0.76), 10))
-		slot.position = Vector2(164, 66 + i * 52)
-		slot.size = Vector2(120, 46)
-		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# ช่องอุปกรณ์สวมใส่: ลากอุปกรณ์จากกระเป๋ามาใส่ หรือดับเบิลคลิกที่อุปกรณ์ในกระเป๋า / คลิกขวาที่ช่องเพื่อถอด
+	for i in Game.EQUIP_SLOTS.size():
+		var slot := EquipSlot.new()
+		slot.slot = Game.EQUIP_SLOTS[i][0]
+		slot.title = Game.EQUIP_SLOTS[i][1]
+		slot.hud = self
+		slot.position = Vector2(160, 66 + i * 46)
+		slot.size = Vector2(126, 40)
 		_char.add_child(slot)
-		var l := _label(names[i], 16, Color(0.6, 0.5, 0.4), 0)
-		l.size = Vector2(120, 46)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		slot.add_child(l)
+		slot.build()
+		_equip_slots.append(slot)
 	_char_name = _label("", 22, Color(0.3, 0.18, 0.08), 0)
-	_char_name.position = Vector2(24, 226)
+	_char_name.position = Vector2(24, 300)
 	_char.add_child(_char_name)
 	_char_stats = _label("", 19, Color(0.3, 0.18, 0.08), 0)
-	_char_stats.position = Vector2(24, 262)
+	_char_stats.position = Vector2(24, 334)
 	_char_stats.add_theme_constant_override("line_spacing", 2)
 	_char.add_child(_char_stats)
 
@@ -395,7 +450,10 @@ func _fill_char() -> void:
 	var total_atk := Game.atk_mult() * float(form["atk"])
 	_char_stats.text = "เลเวล  %d / %d\nEXP  %d / %d\nเลือด  %d / %d\nพลังโจมตี  %d\nความเร็ว  %d%%\nร่างที่มี  %d / 14" % [
 		Game.level, Game.MAX_LEVEL, Game.exp, Game.exp_needed(), ceili(Game.hp), int(Game.max_hp),
-		int(round(Player.BASE_ATK * total_atk)), int(round(float(form["speed"]) * 100.0)), Game.unlocked.size()]
+		int(round((Player.BASE_ATK + Game.equip_bonus("atk")) * total_atk)),
+		int(round(float(form["speed"]) * (1.0 + Game.equip_bonus("speed")) * 100.0)), Game.unlocked.size()]
+	for slot in _equip_slots:
+		slot.refresh()
 
 
 func toggle_bag() -> void:
@@ -452,7 +510,17 @@ func _fill_bag() -> void:
 		row.mouse_default_cursor_shape = Control.CURSOR_DRAG
 		row.add_theme_constant_override("separation", 12)
 		row.add_child(_icon(info["icon"], 44))
-		row.add_child(_label("%s  x%d" % [info["name"], count], 20, Color(0.3, 0.18, 0.08), 0))
+		var text := "%s  x%d" % [info["name"], count]
+		var bonus: Array = []
+		if info.has("atk"):
+			bonus.append("โจมตี +%d" % int(info["atk"]))
+		if info.has("hp"):
+			bonus.append("เลือด +%d" % int(info["hp"]))
+		if info.has("speed"):
+			bonus.append("เร็ว +%d%%" % int(round(float(info["speed"]) * 100.0)))
+		if not bonus.is_empty():
+			text += "    " + "  ".join(bonus)
+		row.add_child(_label(text, 20, Color(0.3, 0.18, 0.08), 0))
 		_bag_list.add_child(row)
 	if not any:
 		_bag_list.add_child(_label("ว่าง", 19, Color(0.6, 0.5, 0.4), 0))
