@@ -82,4 +82,16 @@ func _ready() -> void:
 			await frames(8)
 			await snap("%s_skill%d" % [form, i + 1])
 			await frames(70)
+	# บอส
+	Game.quest_stage = 3
+	Game.max_hp = 100000.0
+	Game.set_hp(100000.0)
+	main.change_stage("tiger_cave", "entrance")
+	await frames(60)
+	p.global_position.x = 900.0
+	for i in 16:
+		await frames(22)
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("%s/boss_%02d_%s.png" % [shot_dir, i, Game.boss.state if Game.boss else "none"])
+	Game.max_hp = 100.0
 	get_tree().quit()

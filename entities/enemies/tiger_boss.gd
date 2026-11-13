@@ -22,6 +22,10 @@ var _dead := false
 var _sprite: Sprite2D
 var _angry := false
 var _pulse := 0.0
+var _tex := {}       # ชื่อท่า -> ภาพ (ภาพวาดทีละท่า)
+var _hold := ""      # ท่าที่ค้างไว้ชั่วครู่หลังโจมตี (ตะปบ / คำราม)
+var _hold_t := 0.0
+var _walk_t := 0.0
 
 
 func _init() -> void:
@@ -45,6 +49,13 @@ func _ready() -> void:
 	_sprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
 	_sprite.position = Vector2(0, 4)
 	add_child(_sprite)
+	var poses := ["walk_0", "walk_1", "walk_2", "walk_3", "crouch_0", "leap_0", "swipe_0", "roar_0"]
+	for pose in poses:
+		var path := "res://assets/art/frames/tiger_boss_%s.png" % pose
+		if ResourceLoader.exists(path):
+			_tex[pose] = load(path)
+	if _tex.size() != poses.size():
+		_tex.clear()
 	Game.boss = self
 
 
@@ -111,6 +122,8 @@ func _physics_process(delta: float) -> void:
 				Fx.spawn(get_parent(), global_position + Vector2(facing * 60, -70), "claw", Vector2(220, 150), Color(1, 0.3, 0.2), facing, 0.3)
 				if rect.intersects(p.get_hurt_rect()):
 					p.take_damage(16.0, global_position.x)
+				_hold = "swipe_0"
+				_hold_t = 0.4
 				_set_state("recover", 0.45 if _phase2() else 0.7)
 		"pounce_tel":
 			velocity.x = 0.0
@@ -141,6 +154,8 @@ func _physics_process(delta: float) -> void:
 					wave.dir = d
 					get_parent().add_child(wave)
 					wave.global_position = global_position + Vector2(d * 70, 0)
+				_hold = "roar_0"
+				_hold_t = 0.7
 				_set_state("recover", 0.9)
 		"recover":
 			velocity.x = move_toward(velocity.x, 0.0, 900.0 * delta)
@@ -246,7 +261,34 @@ func _draw() -> void:
 	var big := 1.0 + _pulse * 0.18
 	if state == "roar_tel":
 		big += 0.06 + sin(_t * 40.0) * 0.02
-	_sprite.scale = Vector2(0.5 * big, 0.5 * crouch * big)
-	_sprite.position = Vector2(facing * lunge, 4 - step)
-	_sprite.rotation = -0.12 * facing if state == "pounce" else tilt
+	if _tex.is_empty():
+		_sprite.scale = Vector2(0.5 * big, 0.5 * crouch * big)
+		_sprite.position = Vector2(facing * lunge, 4 - step)
+		_sprite.rotation = -0.12 * facing if state == "pounce" else tilt
+	else:
+		# เลือกภาพตามท่า: เดิน 4 ภาพ / ย่อตัว / กระโจน / ตะปบ / คำราม
+		var dt := get_process_delta_time()
+		_hold_t = maxf(_hold_t - dt, 0.0)
+		var pose := "walk_3"
+		match state:
+			"walk":
+				_walk_t += dt * 8.0
+				pose = "walk_%d" % (int(_walk_t) % 4)
+			"pounce_tel":
+				pose = "crouch_0"
+			"pounce":
+				pose = "leap_0"
+			"claw_tel":
+				pose = "crouch_0"
+			"roar_tel":
+				pose = "roar_0"
+			_:
+				if _hold_t > 0.0:
+					pose = _hold
+		var tex: Texture2D = _tex[pose]
+		_sprite.texture = tex
+		_sprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
+		_sprite.scale = Vector2(0.5 * big, 0.5 * big * (1.0 + sin(_t * 4.0) * 0.012))
+		_sprite.position = Vector2(facing * lunge, 5)
+		_sprite.rotation = 0.0
 	Art.shadow(self, Vector2(0, 3), 100.0)

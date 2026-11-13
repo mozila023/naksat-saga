@@ -23,6 +23,9 @@ var _hop_t := 0.0
 var _t := 0.0
 var _sprite: Sprite2D
 var _pop := 0.0  # ตัวยุบตอนโดนตี
+var _tex := {}  # ชื่อท่า -> ภาพ (ภาพวาดทีละท่า)
+var _land_t := 0.0
+var _was_floor := true
 
 
 func _init() -> void:
@@ -52,6 +55,14 @@ func _ready() -> void:
 	_sprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
 	_sprite.position = Vector2(0, 3)
 	add_child(_sprite)
+	# ภาพวาดทีละท่า: กบ = นั่ง/ย่อ/ลอย/ลงพื้น, เห็ด = เดิน 4 ภาพ
+	var poses: Array = ["idle_0", "hop_0", "hop_1", "hop_2"] if kind == "frog" else ["walk_0", "walk_1", "walk_2", "walk_3"]
+	for pose in poses:
+		var path := "res://assets/art/frames/%s_%s.png" % [kind, pose]
+		if ResourceLoader.exists(path):
+			_tex[pose] = load(path)
+	if _tex.size() != poses.size():
+		_tex.clear()
 
 
 func is_alive() -> bool:
@@ -144,8 +155,30 @@ func _draw() -> void:
 	var breathe := sin(_t * 5.0) * 0.03
 	_sprite.flip_h = facing > 0
 	_pop = move_toward(_pop, 0.0, get_process_delta_time() * 7.0)
-	_sprite.scale = Vector2(0.5 * (1.0 - stretch * 0.6 + _pop * 0.28), 0.5 * (1.0 + stretch + breathe - _pop * 0.24))
-	_sprite.rotation = sin(_t * 9.0) * 0.05 if kind == "mushroom" and absf(velocity.x) > 5.0 else 0.0
+	if _tex.is_empty():
+		_sprite.scale = Vector2(0.5 * (1.0 - stretch * 0.6 + _pop * 0.28), 0.5 * (1.0 + stretch + breathe - _pop * 0.24))
+		_sprite.rotation = sin(_t * 9.0) * 0.05 if kind == "mushroom" and absf(velocity.x) > 5.0 else 0.0
+	else:
+		# เลือกภาพตามท่า
+		if is_on_floor() and not _was_floor:
+			_land_t = 0.14
+		_was_floor = is_on_floor()
+		_land_t = maxf(_land_t - get_process_delta_time(), 0.0)
+		var pose := "idle_0"
+		if kind == "frog":
+			if not is_on_floor():
+				pose = "hop_1"
+			elif _land_t > 0.0:
+				pose = "hop_2"
+			elif _hop_t < 0.16 and absf(velocity.x) > 5.0 and _stun <= 0.0:
+				pose = "hop_0"
+		else:
+			pose = "walk_%d" % (int(_t * 7.0) % 4) if absf(velocity.x) > 5.0 and _stun <= 0.0 else "walk_1"
+		var tex: Texture2D = _tex[pose]
+		_sprite.texture = tex
+		_sprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
+		_sprite.scale = Vector2(0.5 * (1.0 + _pop * 0.28), 0.5 * (1.0 + breathe * 0.5 - _pop * 0.24))
+		_sprite.rotation = 0.0
 	Art.shadow(self, Vector2(0, 2), 28.0)
 
 	# หลอดเลือด (แสดงเมื่อโดนตีแล้ว)
