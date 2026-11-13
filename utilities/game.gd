@@ -13,12 +13,13 @@ const SAVE_PATH := "user://save.cfg"
 const FROGS_NEEDED := 5
 
 # ---------- ไอเทม ----------
+# tab = แท็บในกระเป๋า (equip อุปกรณ์สวมใส่ / item ไอเทม / etc ทั่วไป)
 # buy = ราคาซื้อจากป้าศรี (0 = ไม่มีขาย), sell = ราคาที่ลุงหมูรับซื้อ (0 = ไม่รับซื้อ)
 const ITEMS := {
-	"potion": {"name": "ยาแดง", "desc": "ฟื้นเลือด 50 (กด F เพื่อดื่ม)", "icon": "potion", "buy": 20, "sell": 0},
-	"frog_leg": {"name": "ขากบ", "desc": "ได้จากกบนา ขายให้ลุงหมูได้", "icon": "frog_leg", "buy": 0, "sell": 6},
-	"mushroom_cap": {"name": "หมวกเห็ดพิษ", "desc": "ได้จากเห็ดพิษ ขายให้ลุงหมูได้", "icon": "mushroom_cap", "buy": 0, "sell": 12},
-	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "buy": 0, "sell": 0},
+	"potion": {"name": "ยาแดง", "desc": "ฟื้นเลือด 50 (กด F เพื่อดื่ม)", "icon": "potion", "tab": "item", "buy": 20, "sell": 0},
+	"frog_leg": {"name": "ขากบ", "desc": "ได้จากกบนา ขายให้ลุงหมูได้", "icon": "frog_leg", "tab": "etc", "buy": 0, "sell": 6},
+	"mushroom_cap": {"name": "หมวกเห็ดพิษ", "desc": "ได้จากเห็ดพิษ ขายให้ลุงหมูได้", "icon": "mushroom_cap", "tab": "etc", "buy": 0, "sell": 12},
+	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 0},
 }
 const POTION_HEAL := 50.0
 
@@ -64,7 +65,7 @@ func _ready() -> void:
 
 
 func _setup_input() -> void:
-	# ปุ่ม: ลูกศรเดิน, Space กระโดด, Shift วิ่งไว, C โจมตี, A S D สกิล, ↑ คุย/เข้าประตู, Q E สลับร่าง, F ดื่มยา, B กระเป๋า
+	# ปุ่ม: ลูกศรเดิน, Space กระโดด, Shift วิ่งไว, C โจมตี, A S D สกิล, ↑ คุย/เข้าประตู, Q E สลับร่าง, F ดื่มยา, I กระเป๋า
 	_add_action("move_left", [KEY_LEFT])
 	_add_action("move_right", [KEY_RIGHT])
 	_add_action("move_down", [KEY_DOWN])
@@ -78,7 +79,7 @@ func _setup_input() -> void:
 	_add_action("form_prev", [KEY_Q])
 	_add_action("form_next", [KEY_E])
 	_add_action("use_potion", [KEY_F])
-	_add_action("bag", [KEY_B])
+	_add_action("bag", [KEY_I, KEY_B])
 	for i in HOTBAR_SIZE:
 		_add_action("slot_%d" % (i + 1), [KEY_1 + i])
 

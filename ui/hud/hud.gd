@@ -18,6 +18,8 @@ var _bag: Panel
 var _bag_list: VBoxContainer
 var _bag_stats: Label
 var _hot_slots: Array = []
+var _bag_tab := "item"
+var _tab_buttons := {}
 var _quest_label: Label
 var _forms_label: Label
 var _banner: Label
@@ -46,7 +48,6 @@ func _ready() -> void:
 	_build_boss_bar()
 	_build_banner()
 	_build_dialogue()
-	_build_help()
 	if DisplayServer.is_touchscreen_available():
 		_build_touch()
 
@@ -237,14 +238,14 @@ class HotSlot extends Panel:
 		if id == "":
 			_icon.visible = false
 			_count.text = ""
-			tooltip_text = "ช่อง %d (ว่าง) — ลากไอเทมจากกระเป๋ามาใส่" % (index + 1)
+			tooltip_text = ""
 		else:
 			var n := Game.item_count(id)
 			_icon.visible = true
 			_icon.texture = load("res://assets/art/items/item_%s.png" % Game.ITEMS[id]["icon"])
 			_icon.modulate = Color.WHITE if n > 0 else Color(1, 1, 1, 0.35)
 			_count.text = "x%d" % n
-			tooltip_text = "%s — กด %d เพื่อใช้ / คลิกขวาเพื่อเอาออก" % [Game.ITEMS[id]["name"], index + 1]
+			tooltip_text = Game.ITEMS[id]["name"]
 
 	func _gui_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.pressed:
@@ -290,19 +291,33 @@ func _build_bag() -> void:
 	var title := _label("กระเป๋า", 30, Color(0.85, 0.4, 0.15), 0)
 	title.position = Vector2(28, 14)
 	_bag.add_child(title)
-	var hint := _label("ลากไอเทมไปใส่ช่อง 1-7    กด B เพื่อปิด", 16, Color(0.5, 0.4, 0.3), 0)
-	hint.position = Vector2(200, 26)
-	hint.size = Vector2(372, 24)
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_bag.add_child(hint)
-	_bag_stats = _label("", 19, Color(0.3, 0.18, 0.08), 0)
-	_bag_stats.position = Vector2(28, 62)
+	_bag_stats = _label("", 18, Color(0.3, 0.18, 0.08), 0)
+	_bag_stats.position = Vector2(180, 22)
+	_bag_stats.size = Vector2(392, 26)
+	_bag_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_bag.add_child(_bag_stats)
+	# แท็บ: อุปกรณ์สวมใส่ / ไอเทม / ทั่วไป
+	var tabs := [["equip", "อุปกรณ์สวมใส่"], ["item", "ไอเทม"], ["etc", "ทั่วไป"]]
+	for i in tabs.size():
+		var b := Button.new()
+		b.text = tabs[i][1]
+		b.focus_mode = Control.FOCUS_NONE  # กัน Space/Enter ไปกดปุ่มแท็บตอนเล่น
+		b.position = Vector2(28 + i * 184, 70)
+		b.size = Vector2(176, 44)
+		b.add_theme_font_size_override("font_size", 20)
+		b.pressed.connect(_set_bag_tab.bind(tabs[i][0]))
+		_bag.add_child(b)
+		_tab_buttons[tabs[i][0]] = b
 	_bag_list = VBoxContainer.new()
 	_bag_list.position = Vector2(28, 132)
 	_bag_list.size = Vector2(544, 290)
 	_bag_list.add_theme_constant_override("separation", 10)
 	_bag.add_child(_bag_list)
+
+
+func _set_bag_tab(tab: String) -> void:
+	_bag_tab = tab
+	_fill_bag()
 
 
 func toggle_bag() -> void:
@@ -312,16 +327,25 @@ func toggle_bag() -> void:
 
 
 func _fill_bag() -> void:
-	_bag_stats.text = "เลเวล %d    EXP %d / %d    เลือดสูงสุด %d\nพลังโจมตี +%d%%    เงิน %d บาท" % [Game.level, Game.exp, Game.exp_needed(), int(Game.max_hp), int(round((Game.atk_mult() - 1.0) * 100.0)), Game.money]
+	_bag_stats.text = "Lv.%d    โจมตี +%d%%    %d บาท" % [Game.level, int(round((Game.atk_mult() - 1.0) * 100.0)), Game.money]
+	for tab in _tab_buttons:
+		var on: bool = tab == _bag_tab
+		var btn: Button = _tab_buttons[tab]
+		var style := _box(Color(1.0, 0.85, 0.5) if on else Color(0.93, 0.88, 0.76), 10)
+		for state in ["normal", "hover", "pressed"]:
+			btn.add_theme_stylebox_override(state, style)
+		for state in ["font_color", "font_hover_color", "font_pressed_color"]:
+			btn.add_theme_color_override(state, Color(0.3, 0.18, 0.08) if on else Color(0.55, 0.45, 0.35))
 	for child in _bag_list.get_children():
+		_bag_list.remove_child(child)
 		child.queue_free()
 	var any := false
 	for id in Game.ITEMS:
 		var count := Game.item_count(id)
-		if count <= 0:
+		var info: Dictionary = Game.ITEMS[id]
+		if count <= 0 or info["tab"] != _bag_tab:
 			continue
 		any = true
-		var info: Dictionary = Game.ITEMS[id]
 		var row := BagRow.new()
 		row.item = id
 		row.hud = self
@@ -329,15 +353,10 @@ func _fill_bag() -> void:
 		row.mouse_default_cursor_shape = Control.CURSOR_DRAG
 		row.add_theme_constant_override("separation", 12)
 		row.add_child(_icon(info["icon"], 44))
-		var text := "%s  x%d\n%s" % [info["name"], count, info["desc"]]
-		if int(info["sell"]) > 0:
-			text += "  (ขายได้ชิ้นละ %d บาท)" % int(info["sell"])
-		var l := _label(text, 18, Color(0.3, 0.18, 0.08), 0)
-		l.add_theme_constant_override("line_spacing", -4)
-		row.add_child(l)
+		row.add_child(_label("%s  x%d" % [info["name"], count], 20, Color(0.3, 0.18, 0.08), 0))
 		_bag_list.add_child(row)
 	if not any:
-		_bag_list.add_child(_label("ยังไม่มีของ — ตีมอนสเตอร์แล้วเก็บของที่ตก", 19, Color(0.5, 0.4, 0.3), 0))
+		_bag_list.add_child(_label("ว่าง", 19, Color(0.6, 0.5, 0.4), 0))
 
 
 func _refresh_hp() -> void:
@@ -528,18 +547,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_advance_dialogue()
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F9:
 		Game.main.restart_game()
-
-
-# ---------- คำแนะนำปุ่ม ----------
-
-func _build_help() -> void:
-	if DisplayServer.is_touchscreen_available():
-		return
-	var help := _label("← → เดิน   Shift วิ่งไว   Space กระโดด   ↓+Space ลงแท่น\nC โจมตี   A S D สกิล   Q/E สลับร่าง   F ดื่มยา\n↑ คุย/เข้าประตู   B กระเป๋า   1-7 ใช้ไอเทม   F9 เริ่มใหม่", 15, Color(1, 1, 1, 0.92), 5)
-	help.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	help.position = Vector2(16, -84)
-	help.add_theme_constant_override("line_spacing", -4)
-	_root.add_child(help)
 
 
 # ---------- อัปเดตทุกเฟรม ----------
