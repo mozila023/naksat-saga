@@ -57,7 +57,17 @@ func _ready() -> void:
 	main = load("res://main.tscn").instantiate()
 	add_child(main)
 	var p: Player = main.player
+	await frames(20)
+	check(Game.in_title and not main.hud.visible, "title screen shows first")
+	await shot("00_title")
+	var title_x := p.global_position.x
+	Input.action_press("move_right")
+	await frames(10)
+	Input.action_release("move_right")
+	check(absf(p.global_position.x - title_x) < 1.0, "player is locked on the title screen")
+	main.start_game()
 	await frames(40)
+	check(not Game.in_title and main.hud.visible, "game starts after the title screen")
 	check(main.stage_id == "village", "starts in village")
 	check(p.is_on_floor(), "player lands on ground")
 	await shot("01_village_start")

@@ -116,7 +116,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var form := Game.current_form()
-	var locked := Game.in_dialogue or Game.dialogue_just_ended()
+	var locked := Game.in_dialogue or Game.dialogue_just_ended() or Game.in_title
 	if not is_on_floor():
 		velocity.y = minf(velocity.y + GRAVITY * delta, 1400.0)
 

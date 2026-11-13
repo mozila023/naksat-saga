@@ -38,6 +38,7 @@ func _ready() -> void:
 	Game.unlocked = ["normal", "tiger"]
 	main = load("res://main.tscn").instantiate()
 	add_child(main)
+	main.start_game()
 	p = main.player
 	await frames(60)
 	main.change_stage("rice_field", "from_village")

@@ -14,6 +14,7 @@ var player: Player
 var hud: Hud
 var _fade: ColorRect
 var _changing := false
+var title: TitleScreen
 
 
 func _ready() -> void:
@@ -40,6 +41,27 @@ func _ready() -> void:
 
 	_load_stage("village", "start")
 	create_tween().tween_property(_fade, "color:a", 0.0, 0.4)
+
+	# หน้าปกเกม: ซ่อน HUD และล็อกตัวละครไว้จนกว่าจะคลิกเริ่ม
+	Game.in_title = true
+	hud.visible = false
+	player.visible = false
+	title = TitleScreen.new()
+	title.started.connect(_on_title_started)
+	add_child(title)
+
+
+func _on_title_started() -> void:
+	Game.in_title = false
+	hud.visible = true
+	player.visible = true
+	Game.banner.emit(stage.title)
+
+
+## ข้ามหน้าปก (ใช้ในการทดสอบอัตโนมัติ)
+func start_game() -> void:
+	if title and is_instance_valid(title):
+		title.begin()
 
 
 func change_stage(id: String, spawn: String) -> void:

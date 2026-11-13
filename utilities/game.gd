@@ -64,6 +64,7 @@ const HOTBAR_SIZE := 7
 var hotbar: Array = ["", "", "", "", "", "", ""]  # ช่องไอเทม 1-7 (รหัสไอเทม หรือ "" = ว่าง)
 
 var in_dialogue := false
+var in_title := false  # กำลังแสดงหน้าปกเกม (ล็อกการควบคุม)
 var _dialogue_done := Callable()
 var _stopping := false
 var _dialogue_end_frame := -100
