@@ -22,6 +22,7 @@ const ITEMS := {
 	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 0},
 }
 const POTION_HEAL := 50.0
+const MAX_LEVEL := 150  # เลเวลสูงสุด
 
 # ---------- รางวัลจากมอนสเตอร์ ----------
 # coins = [จำนวนเหรียญต่ำสุด, สูงสุด], coin_value = [มูลค่าต่อเหรียญต่ำสุด, สูงสุด], drops = [[ไอเทม, โอกาส 0..1], ...]
@@ -213,12 +214,17 @@ func _apply_level() -> void:
 
 
 func add_exp(amount: int) -> void:
+	if level >= MAX_LEVEL:
+		exp = 0
+		return
 	exp += amount
 	var leveled := false
-	while exp >= exp_needed():
+	while level < MAX_LEVEL and exp >= exp_needed():
 		exp -= exp_needed()
 		level += 1
 		leveled = true
+	if level >= MAX_LEVEL:
+		exp = 0
 	if leveled:
 		_apply_level()
 		set_hp(max_hp)
@@ -404,7 +410,7 @@ func load_game() -> void:
 			unlocked.append(id)
 	quest_stage = int(cfg.get_value("game", "quest_stage", 0))
 	frog_kills = int(cfg.get_value("game", "frog_kills", 0))
-	level = maxi(int(cfg.get_value("game", "level", 1)), 1)
+	level = clampi(int(cfg.get_value("game", "level", 1)), 1, MAX_LEVEL)
 	exp = int(cfg.get_value("game", "exp", 0))
 	money = int(cfg.get_value("game", "money", 0))
 	items = {}

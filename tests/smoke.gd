@@ -115,6 +115,15 @@ func _ready() -> void:
 	check(Game.quest_stage == 2, "frog quest complete (stage %d, kills %d)" % [Game.quest_stage, Game.frog_kills])
 	check(Game.level > 1, "kills give EXP and level up (Lv.%d)" % Game.level)
 	check(Game.max_hp > 100.0, "level raises max HP")
+	var keep_level := Game.level
+	var keep_exp := Game.exp
+	Game.add_exp(100000000)
+	check(Game.level == Game.MAX_LEVEL, "level is capped at %d" % Game.MAX_LEVEL)
+	Game.level = keep_level
+	Game.exp = keep_exp
+	Game._apply_level()
+	Game.set_hp(Game.max_hp)
+	Game.stats_changed.emit()
 	var drops := get_tree().get_nodes_in_group("pickups")
 	check(drops.size() > 0, "monsters drop pickups")
 	var money_before := Game.money

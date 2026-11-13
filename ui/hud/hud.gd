@@ -181,7 +181,7 @@ func _icon(item: String, px: int) -> TextureRect:
 func _refresh_stats() -> void:
 	_level_label.text = "Lv.%d" % Game.level
 	_exp_bar.max_value = Game.exp_needed()
-	_exp_bar.value = Game.exp
+	_exp_bar.value = Game.exp_needed() if Game.level >= Game.MAX_LEVEL else Game.exp
 	_money_label.text = "%d บาท" % Game.money
 	_potion_label.text = "x%d  [F]" % Game.item_count("potion")
 	if _bag.visible:
