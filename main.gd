@@ -5,6 +5,8 @@ const STAGES := {
 	"village": preload("res://stages/village.gd"),
 	"rice_field": preload("res://stages/rice_field.gd"),
 	"tiger_cave": preload("res://stages/tiger_cave.gd"),
+	"chief_house": preload("res://stages/chief_house.gd"),
+	"trial_hall": preload("res://stages/trial_hall.gd"),
 }
 
 var world: Node2D
@@ -89,11 +91,12 @@ func _load_stage(id: String, spawn: String) -> void:
 	player.velocity = Vector2.ZERO
 	player.set_camera_limits(stage.width)
 	Game.banner.emit(stage.title)
-	Sound.play_bgm(id)
+	Sound.play_bgm("village" if id == "chief_house" else id)
 
 
 func on_player_died() -> void:
 	Game.banner.emit("หมดแรง... กลับไปพักที่หมู่บ้าน")
+	Game.active_trial = ""  # แพ้การประลอง: กลับไปคุยกับนักษัตรใหม่ได้
 	await get_tree().create_timer(1.6).timeout
 	_changing = false
 	change_stage("village", "start")

@@ -10,6 +10,7 @@ const ART := {
 	"village": {"split": 444.0, "feet": 474.0, "sky": Color(0.374, 0.768, 0.971)},
 	"field": {"split": 449.0, "feet": 474.0, "sky": Color(0.35, 0.765, 0.971)},
 	"cave": {"split": 432.0, "feet": 466.0, "sky": Color(0.142, 0.119, 0.124)},
+	"house": {"split": 424.0, "feet": 470.0, "sky": Color(0.362, 0.153, 0.118)},
 }
 
 var width := 4000.0
@@ -116,7 +117,7 @@ func add_platform(x: float, y: float, w: float) -> void:
 
 
 func add_prop(kind: String, x: float, extra := {}) -> void:
-	if has_art() and kind != "sign":
+	if has_art() and not (kind in ["sign", "gate"]):
 		return  # ภาพฉากหลังจริงมีบ้าน ต้นไม้ ฯลฯ อยู่แล้ว
 	var p := {"kind": kind, "x": x}
 	p.merge(extra)
@@ -581,6 +582,26 @@ func _draw_prop(p: Dictionary) -> void:
 			Art.box(self, Rect2(x - 9, g - 138, 18, 10), Color(0.4, 0.36, 0.4), 4.0, 2.0)
 			Art.leaf(self, Vector2(x, g - 134), Vector2(x - 12, g - 156), Vector2(x + f, g - 186 - absf(f)), 13.0, Color(1.0, 0.5, 0.15), Color(1.0, 0.7, 0.3))
 			Art.leaf(self, Vector2(x, g - 134), Vector2(x + 6, g - 150), Vector2(x - f * 0.5, g - 166), 8.0, Color(1.0, 0.88, 0.4), Color(1, 1, 0.8))
+		"gate":
+			# ซุ้มประตูไม้ทรงไทย หน้าบ้านผู้ใหญ่บ้าน
+			var red := Color(0.72, 0.2, 0.16)
+			var gold := Color(1.0, 0.82, 0.32)
+			Art.ellipse(self, Vector2(x, g + 2), 120.0, 10.0, Color(0, 0, 0, 0.18))
+			for sx in [-86.0, 86.0]:
+				Art.box(self, Rect2(x + sx - 12, g - 230, 24, 232), red, 5.0)
+				Art.rrect(self, Rect2(x + sx - 16, g - 236, 32, 12), gold, 4.0)
+				Art.rrect(self, Rect2(x + sx - 16, g - 14, 32, 14), gold, 4.0)
+			Art.box(self, Rect2(x - 118, g - 246, 236, 18), wood_dark, 6.0)
+			Art.poly(self, PackedVector2Array([Vector2(x - 140, g - 244), Vector2(x - 70, g - 300), Vector2(x + 70, g - 300), Vector2(x + 140, g - 244)]), ink)
+			Art.poly(self, PackedVector2Array([Vector2(x - 132, g - 247), Vector2(x - 67, g - 296), Vector2(x + 67, g - 296), Vector2(x + 132, g - 247)]), Color(0.9, 0.36, 0.26))
+			Art.leaf(self, Vector2(x, g - 294), Vector2(x - 4, g - 318), Vector2(x, g - 342), 7.0, gold, Color(1, 0.95, 0.7))
+			for s2 in [-1.0, 1.0]:
+				Art.leaf(self, Vector2(x + s2 * 132, g - 248), Vector2(x + s2 * 154, g - 254), Vector2(x + s2 * 162, g - 280), 6.0, gold, Color(1, 0.95, 0.7))
+			# โคมแขวน
+			for lx in [-60.0, 60.0]:
+				draw_line(Vector2(x + lx, g - 228), Vector2(x + lx, g - 206), ink, 2.0, true)
+				Art.blob(self, Vector2(x + lx, g - 192), 12.0, 16.0, Color(1.0, 0.45, 0.3), 2.0)
+				Art.glow(self, Vector2(x + lx, g - 192), 26.0, Color(1.0, 0.7, 0.3, 0.5))
 		"cave_mouth":
 			Art.poly(self, PackedVector2Array([Vector2(x - 196, g + 2), Vector2(x - 160, g - 190), Vector2(x - 60, g - 296), Vector2(x + 80, g - 262), Vector2(x + 170, g - 130), Vector2(x + 196, g + 2)]), ink)
 			Art.poly(self, PackedVector2Array([Vector2(x - 190, g + 2), Vector2(x - 154, g - 186), Vector2(x - 58, g - 290), Vector2(x + 78, g - 256), Vector2(x + 164, g - 128), Vector2(x + 190, g + 2)]), Color(0.56, 0.54, 0.6))

@@ -60,10 +60,10 @@ func build() -> void:
 	add_spawner("frog", 7960.0, 350.0, 130.0)
 
 	# ---- ปากถ้ำเสือ (เข้าได้เมื่อรับเควสปราบเสือแล้ว) ----
-	add_portal(9400.0, "ถ้ำเสือ (บอส)", "tiger_cave", "entrance", _cave_lock, Color(1.0, 0.5, 0.3))
+	add_portal(9400.0, "ถ้ำเสือ", "tiger_cave", "entrance", _cave_lock, Color(1.0, 0.5, 0.3))
 
 
 func _cave_lock() -> String:
-	if Game.quest_stage < 3:
-		return "ปากถ้ำถูกปิดผนึกด้วยยันต์ ของผู้ใหญ่บ้าน ต้องไปรับเควส ปราบพญาเสือโคร่ง ก่อน"
+	if Game.active_trial != "tiger":
+		return "ปากถ้ำถูกผนึกไว้ จะเปิดเมื่อ ขาล (เสือ) เรียกหลานมาประลอง"
 	return ""

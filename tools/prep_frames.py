@@ -1,6 +1,7 @@
 """ตัดชีตท่าทาง (หลายเฟรมเรียงแนวนอนบนพื้นเขียว/ชมพู) ออกเป็นเฟรมเดี่ยว พื้นใส ขนาดผืนผ้าใบเท่ากัน เท้าอยู่กึ่งกลางล่าง
 
-ใช้: python3 tools/prep_frames.py <โฟลเดอร์ภาพต้นฉบับ> assets/art/frames
+ใช้: python3 tools/prep_frames.py <โฟลเดอร์ภาพต้นฉบับ> assets/art/frames [ร่าง ...]
+    (ไม่ใส่ชื่อร่าง = ทำ normal กับ tiger)
 """
 import sys
 import numpy as np
@@ -52,6 +53,13 @@ def split_frames(rgba, count):
             start = None
     if start is not None:
         runs.append([start, len(cols)])
+    counts = keep.sum(axis=0)
+    while len(runs) < count:  # เฟรมติดกัน (เช่น หางยาวชนเฟรมถัดไป): ผ่าช่วงที่กว้างที่สุดตรงคอลัมน์ที่บางที่สุด
+        i = int(np.argmax([r[1] - r[0] for r in runs]))
+        x0, x1 = runs[i]
+        lo, hi = x0 + (x1 - x0) // 5, x1 - (x1 - x0) // 5
+        cut = lo + int(np.argmin(counts[lo:hi]))
+        runs[i:i + 1] = [[x0, cut], [cut, x1]]
     while len(runs) > count:  # รวมคู่ที่ช่องว่างแคบที่สุด
         gaps = [runs[i + 1][0] - runs[i][1] for i in range(len(runs) - 1)]
         i = int(np.argmin(gaps))
@@ -62,7 +70,13 @@ def split_frames(rgba, count):
     out = []
     for x0, x1 in runs:
         part = rgba[:, x0:x1].copy()
-        part[..., 3] = np.where(keep[:, x0:x1], part[..., 3], 0)
+        mask = keep[:, x0:x1]
+        # เก็บเฉพาะตัวละครหลัก (ตัดเศษหางของเฟรมข้างเคียงที่ติดมา)
+        plab, pn = ndimage.label(mask)
+        if pn > 1:
+            psizes = ndimage.sum(mask, plab, range(1, pn + 1))
+            mask = np.isin(plab, [i + 1 for i, v in enumerate(psizes) if v > psizes.max() * 0.15])
+        part[..., 3] = np.where(mask, part[..., 3], 0)
         rows = np.where((part[..., 3] > 128).any(axis=1))[0]
         out.append(part[rows[0]:rows[-1] + 1])
     return out
@@ -76,11 +90,16 @@ def anchor_x(frame, mode):
     return (xs[0] + xs[-1]) * 0.5
 
 
-for form in ["normal", "tiger"]:
+# ชีตที่ AI วาดเฟรมเกินมา: {ร่าง: {ชีต: จำนวนเฟรมจริงในภาพ}} (ใช้แค่เฟรมแรก ๆ ตามจำนวนชื่อ)
+EXTRA = {"rat": {"attack": 4}}
+FORMS = sys.argv[3:] or ["normal", "tiger"]
+
+for form in FORMS:
     scale = None
     for sheet in ["poses", "walk", "attack"]:  # poses ก่อน เพื่อใช้ท่ายืนเป็นตัวกำหนดขนาด
         names, ref, mode = SHEETS[sheet]
-        frames = split_frames(key_out(Image.open(f"{SRC}/naksat_hero_{form}_{sheet}.png")), len(names))
+        count = max(len(names), EXTRA.get(form, {}).get(sheet, 0))
+        frames = split_frames(key_out(Image.open(f"{SRC}/naksat_hero_{form}_{sheet}.png")), count)[: len(names)]
         if ref is not None:
             sheet_scale = STAND_H / frames[ref].shape[0]
             if sheet == "poses":

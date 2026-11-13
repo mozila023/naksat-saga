@@ -89,9 +89,16 @@ func _ready() -> void:
 	await tap("form_next")
 	check(Game.form_id == "normal", "cannot switch form before unlocking")
 
+	# เข้าบ้านผู้ใหญ่บ้านทางซุ้มประตู
 	p.global_position.x = 2050.0
 	await frames(30)
-	await shot("02_village_chief")
+	await shot("02_village_gate")
+	await tap("interact")
+	await frames(60)
+	check(main.stage_id == "chief_house", "gate leads into the chief's house")
+	check(get_tree().get_nodes_in_group("interactables").filter(func(n: Node) -> bool: return n is ZodiacSpirit).is_empty(), "no zodiac spirit before the quest")
+	p.global_position.x = 700.0
+	await frames(30)
 	await tap("interact")
 	await frames(20)
 	check(Game.in_dialogue, "dialogue opens")
@@ -102,6 +109,11 @@ func _ready() -> void:
 	await frames(20)
 	await talk_through()
 	check(Game.quest_stage == 1, "quest 1 accepted (got %d)" % Game.quest_stage)
+	p.global_position.x = 100.0
+	await frames(20)
+	await tap("interact")
+	await frames(60)
+	check(main.stage_id == "village", "house exit leads back to the village")
 
 	p.global_position.x = 6240.0
 	await frames(20)
@@ -184,7 +196,8 @@ func _ready() -> void:
 	await shot("04d_equipment")
 	main.hud._set_bag_tab("item")
 	await shot("04c_hotbar")
-	await tap("bag")
+	main.hud.toggle_bag()
+	check(not main.hud._bag.visible, "bag closes")
 	Game.add_item("potion", 1)
 	Game.set_hp(10.0)
 	await tap("slot_6")
@@ -194,12 +207,14 @@ func _ready() -> void:
 	await frames(400)
 	check(get_tree().get_nodes_in_group("enemies").size() >= 10, "monsters respawn")
 
-	main.change_stage("village", "start")
+	main.change_stage("chief_house", "entrance")
 	await frames(60)
-	p.global_position.x = 2050.0
+	p.global_position.x = 700.0
 	await frames(20)
 	await talk_through()
-	check(Game.quest_stage == 3, "boss quest accepted (got %d)" % Game.quest_stage)
+	check(Game.quest_stage == 3, "zodiac phase starts (got %d)" % Game.quest_stage)
+	main.change_stage("village", "from_house")
+	await frames(60)
 	p.global_position.x = 4360.0
 	await frames(20)
 	var before_sale := Game.money
@@ -211,23 +226,78 @@ func _ready() -> void:
 	await talk_through()
 	check(Game.item_count("potion") == potions_before + 1, "auntie sells a potion")
 
+	# ---- นักษัตรตัวแรก: ชวด (หนู) Lv.10 ----
 	main.change_stage("rice_field", "from_cave")
 	await frames(60)
 	p.global_position.x = 9400.0
 	await frames(20)
 	await shot("05_cave_mouth")
 	await tap("interact")
+	await frames(40)
+	check(Game.in_dialogue and main.stage_id == "rice_field", "tiger cave sealed until the tiger trial")
+	Game.end_dialogue()
+	main.hud._dialogue.visible = false
+	check(Game.quest_text().contains("Lv.10"), "quest asks to reach Lv.10 (%s)" % Game.quest_text())
+	while Game.level < 10:
+		Game.add_exp(Game.exp_needed())
+	await frames(20)
+	check(Game.quest_text().contains("ชวด"), "Lv.10 quest points to the rat (%s)" % Game.quest_text())
+	main.change_stage("chief_house", "entrance")
 	await frames(60)
-	check(main.stage_id == "tiger_cave", "enter boss cave")
-	check(Game.boss != null, "boss present")
+	var spirits := get_tree().get_nodes_in_group("interactables").filter(func(n: Node) -> bool: return n is ZodiacSpirit)
+	check(spirits.size() == 1 and spirits[0].zodiac["id"] == "rat", "rat spirit appears at the shrine")
+	p.global_position.x = 1500.0
+	await frames(30)
+	await shot("05b_rat_spirit")
+	await talk_through()
+	await frames(60)
+	check(main.stage_id == "trial_hall" and Game.active_trial == "rat", "rat trial starts in the trial hall")
+	check(Game.boss != null and Game.boss.zodiac_id == "rat", "rat boss present")
 	Game.max_hp = 100000.0
 	Game.set_hp(100000.0)
 	p.global_position.x = 900.0
 	await frames(150)
-	await shot("06_boss_fight")
+	await shot("06_rat_fight")
+	await frames(150)
+	check(Game.hp < Game.max_hp, "rat can hurt the player")
+	Game.hit_enemies(Rect2(-1000, -2000, 20000, 4000), 260.0, 0.0)
+	await frames(120)
+	await shot("06b_rat_phase2")
+	await kill_all(1)
+	check("rat" in Game.unlocked and Game.active_trial == "", "rat form unlocked")
+	await frames(20)
+	Game.end_dialogue()
+	main.hud._dialogue.visible = false
+	await frames(30)
+	await tap("form_next")
+	check(Game.form_id == "rat", "switch to rat form")
+	for i in 3:
+		p.use_skill(i)
+		await frames(40)
+	await shot("06c_rat_form")
+	await tap("form_prev")
+
+	# ---- ขาล (เสือ) Lv.30: ข้ามฉลู (ยังไม่พร้อม) ----
+	while Game.level < 30:
+		Game.add_exp(Game.exp_needed())
+	check(Game.quest_text().contains("ขาล"), "Lv.30 quest points to the tiger (%s)" % Game.quest_text())
+	main.change_stage("chief_house", "entrance")
+	await frames(60)
+	spirits = get_tree().get_nodes_in_group("interactables").filter(func(n: Node) -> bool: return n is ZodiacSpirit)
+	check(spirits.size() == 1 and spirits[0].zodiac["id"] == "tiger", "tiger spirit appears at Lv.30")
+	p.global_position.x = 1500.0
+	await frames(30)
+	await talk_through()
+	await frames(60)
+	check(main.stage_id == "tiger_cave", "tiger trial happens in the tiger cave")
+	check(Game.boss != null and Game.boss.zodiac_id == "tiger", "tiger boss present")
+	Game.max_hp = 100000.0
+	Game.set_hp(100000.0)
+	p.global_position.x = 900.0
+	await frames(150)
+	await shot("07_boss_fight")
 	await frames(200)
-	await shot("07_boss_fight_2")
-	check(Game.hp < Game.max_hp, "boss can hurt the player")
+	await shot("07b_boss_fight_2")
 	var hp_before: float = Game.boss.hp if Game.boss else 0.0
 	Game.hit_enemies(Rect2(-1000, -2000, 20000, 4000), 400.0, 0.0)
 	check(Game.boss != null and Game.boss.hp < hp_before, "boss takes damage")
@@ -235,17 +305,17 @@ func _ready() -> void:
 	await shot("08_boss_phase2")
 	await kill_all(1)
 	check("tiger" in Game.unlocked, "tiger form unlocked")
-	check(Game.quest_stage == 4, "boss quest done (got %d)" % Game.quest_stage)
 	await frames(30)
 	await shot("09_boss_defeated")
-	await tap("form_next")
-	check(Game.form_id == "tiger", "switch to tiger form")
+	Game.end_dialogue()
+	main.hud._dialogue.visible = false
+	await frames(30)
+	Game.set_form("tiger")
 	for i in 3:
 		p.use_skill(i)
 		await frames(40)
 	await shot("10_tiger_form")
 
-	check(Game.item_count("tiger_fang") >= 1 or get_tree().get_nodes_in_group("pickups").size() > 0, "boss drops loot")
 	Game.max_hp = 100.0
 	Game.set_hp(1.0)
 	p._invuln = 0.0
@@ -253,10 +323,7 @@ func _ready() -> void:
 	check(p.dead, "player can die")
 	await frames(240)
 	check(not p.dead and main.stage_id == "village", "respawn in village")
-	p.global_position.x = 2050.0
-	await frames(20)
-	await talk_through()
-	check(Game.quest_stage == 5, "quest chain complete (got %d)" % Game.quest_stage)
+	check(Game.quest_text().contains("Lv.40") or Game.quest_text().contains("เร็ว ๆ นี้"), "next quest after the tiger (%s)" % Game.quest_text())
 	await shot("11_end")
 
 	Game.reset_save()

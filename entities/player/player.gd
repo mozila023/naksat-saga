@@ -292,7 +292,7 @@ func use_skill(index: int) -> void:
 					Fx.spawn(get_parent(), center, "ring", Vector2(r * (0.55 + i * 0.25), r), Color(1.0, 0.7, 0.25), facing, 0.35 + i * 0.15)
 				Fx.spawn(get_parent(), global_position, "pillar", Vector2(60, 260), Color(1.0, 0.75, 0.3), facing, 0.5)
 				Fx.spawn(get_parent(), center, "star", Vector2(r * 0.6, 160), Color(1.0, 0.85, 0.4), facing, 0.7)
-				Game.spawn_text(center + Vector2(-50, -70), "โฮก!!", Color(1.0, 0.8, 0.3), 52)
+				Game.spawn_text(center + Vector2(-50, -70), spec.get("shout", "โฮก!!"), Color(1.0, 0.8, 0.3), 52)
 				Game.shake(12.0, 0.45)
 				Sound.play("roar", 0.03)
 			else:
@@ -376,7 +376,7 @@ func cycle_form(step: int) -> void:
 		if f["id"] in Game.unlocked:
 			ids.append(f["id"])
 	if ids.size() <= 1:
-		Game.banner.emit("ยังไม่มีร่างอื่น — ปราบบอสนักษัตรเพื่อปลดล็อกร่างใหม่")
+		Game.banner.emit("ยังไม่มีร่างอื่น — ผ่านการประลองนักษัตรเพื่อรับร่างใหม่")
 		return
 	var i := ids.find(Game.form_id)
 	Game.set_form(ids[posmod(i + step, ids.size())])

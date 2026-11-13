@@ -37,7 +37,8 @@ const MAX_LEVEL := 150  # เลเวลสูงสุด
 const REWARDS := {
 	"frog": {"exp": 8, "coins": [1, 2], "coin_value": [2, 4], "drops": [["frog_leg", 0.4], ["potion", 0.012], ["straw_hat", 0.02], ["sandals", 0.02]]},
 	"mushroom": {"exp": 18, "coins": [1, 3], "coin_value": [3, 6], "drops": [["mushroom_cap", 0.4], ["potion", 0.025], ["wood_sword", 0.03], ["pha_khao_ma", 0.03]]},
-	"tiger": {"exp": 250, "coins": [8, 8], "coin_value": [10, 14], "drops": [["tiger_fang", 1.0], ["potion", 1.0], ["amulet", 1.0]]},
+	"rat": {"exp": 300, "coins": [6, 6], "coin_value": [6, 10], "drops": [["potion", 1.0], ["sandals", 1.0]]},
+	"tiger": {"exp": 900, "coins": [8, 8], "coin_value": [10, 14], "drops": [["tiger_fang", 1.0], ["potion", 1.0], ["amulet", 1.0]]},
 }
 
 var main: Node
@@ -51,7 +52,8 @@ var form_id := "normal"
 
 # ขั้นของเควสหลัก
 # 0 ยังไม่รับ / 1 ตีกบ / 2 กลับไปรายงาน / 3 ไปปราบพญาเสือ / 4 กลับไปรายงาน / 5 จบ
-var quest_stage := 0
+var quest_stage := 0  # 0 ยังไม่คุย / 1 ตีกบ / 2 กลับไปรายงาน / 3 ช่วงนักษัตร (ประลองทุก 10 เลเวล)
+var active_trial := ""  # นักษัตรที่กำลังประลองอยู่ ("" = ไม่มี)
 var frog_kills := 0
 
 # เลเวล: ทุกเลเวล เลือดสูงสุด +15 และพลังโจมตี +10%
@@ -196,12 +198,28 @@ func spawn_number(pos: Vector2, text: String, color: Color, font_size := 26) -> 
 
 func quest_text() -> String:
 	match quest_stage:
-		0: return "เควส: ไปคุยกับผู้ใหญ่บ้านที่ศาลาประชาคม"
+		0: return "เควส: ไปพบผู้ใหญ่บ้านที่บ้านผู้ใหญ่บ้าน"
 		1: return "เควส: กำจัดกบนาที่ทุ่งนา %d/%d" % [frog_kills, FROGS_NEEDED]
 		2: return "เควส: กลับไปรายงานผู้ใหญ่บ้าน"
-		3: return "เควส: ปราบพญาเสือโคร่งที่ถ้ำเสือ 0/1"
-		4: return "เควส: กลับไปรายงานผู้ใหญ่บ้าน"
-	return "เควสสำเร็จ! (บอสนักษัตรตัวต่อไป เร็ว ๆ นี้)"
+	if active_trial != "":
+		return "เควส: ประลองกับ %s" % Zodiac.display_name(Zodiac.get_data(active_trial))
+	var z := Zodiac.available(level, unlocked)
+	if not z.is_empty():
+		return "เควส: ไปประลองกับ %s ที่บ้านผู้ใหญ่บ้าน" % Zodiac.display_name(z)
+	var next := Zodiac.upcoming(level, unlocked)
+	if not next.is_empty():
+		return "เควส: ฝึกให้ถึง Lv.%d เพื่อพบ %s" % [int(next["level"]), Zodiac.display_name(next)]
+	return "เควส: นักษัตรตัวต่อไป เร็ว ๆ นี้"
+
+
+## เริ่มประลองกับนักษัตร: พาไปลานประลองของตัวนั้น
+func start_trial(id: String) -> void:
+	var z := Zodiac.get_data(id)
+	if z.is_empty() or main == null:
+		return
+	active_trial = id
+	quest_changed.emit()
+	main.change_stage(z["arena"], "entrance")
 
 
 func set_quest_stage(stage: int) -> void:
@@ -282,6 +300,7 @@ func add_exp(amount: int) -> void:
 	if level >= MAX_LEVEL:
 		exp = 0
 	if leveled:
+		quest_changed.emit()  # เลเวลถึงแล้วเควสนักษัตรอาจเปลี่ยน
 		_apply_level()
 		set_hp(max_hp)
 		banner.emit("เลเวลอัป! Lv.%d\nเลือดสูงสุด %d  พลังโจมตี +%d%%" % [level, int(max_hp), int(round((atk_mult() - 1.0) * 100.0))])
@@ -400,13 +419,18 @@ func on_boss_defeated(id: String, pos := Vector2.INF) -> void:
 	boss = null
 	if pos != Vector2.INF:
 		give_rewards(id, pos)
-	if id == "tiger":
-		if unlock_form("tiger"):
-			banner.emit("ปราบพญาเสือโคร่งสำเร็จ!\nได้ร่างขาล (เสือ) — กด Q / E เพื่อสลับร่าง")
-		else:
-			banner.emit("ปราบพญาเสือโคร่งสำเร็จ!")
-		if quest_stage == 3:
-			set_quest_stage(4)
+	var z := Zodiac.get_data(id)
+	active_trial = ""
+	if z.is_empty():
+		return
+	var form := Forms.get_form(id)
+	if unlock_form(id):
+		banner.emit("ผ่านการประลอง!\nได้ %s — กด Q / E เพื่อสลับร่าง" % form["name"])
+	else:
+		banner.emit("ผ่านการประลอง!")
+	start_dialogue([{"who": z["year"], "text": z["win"]}])
+	quest_changed.emit()
+	save_game()
 
 
 func player_died() -> void:
@@ -468,7 +492,7 @@ func load_game() -> void:
 	for id in saved:
 		if id != "normal" and Forms.get_form(id)["id"] == id:
 			unlocked.append(id)
-	quest_stage = int(cfg.get_value("game", "quest_stage", 0))
+	quest_stage = mini(int(cfg.get_value("game", "quest_stage", 0)), 3)  # เซฟเก่า (ระบบเสือเดิม 3-5) = ช่วงนักษัตร
 	frog_kills = int(cfg.get_value("game", "frog_kills", 0))
 	level = clampi(int(cfg.get_value("game", "level", 1)), 1, MAX_LEVEL)
 	exp = int(cfg.get_value("game", "exp", 0))
@@ -497,6 +521,7 @@ func reset_save() -> void:
 	unlocked = ["normal"]
 	form_id = "normal"
 	quest_stage = 0
+	active_trial = ""
 	frog_kills = 0
 	level = 1
 	exp = 0

@@ -1,13 +1,15 @@
-class_name TigerBoss extends CharacterBody2D
-## บอสนักษัตรตัวแรก: พญาเสือโคร่ง (ปีขาล)
+class_name ZodiacBoss extends CharacterBody2D
+## นักษัตรตอนประลอง (ใช้ร่วมกันทุกตัว ค่าต่าง ๆ มาจาก Zodiac.LIST[...]["boss"])
 ## ท่า: ตะปบ / กระโจนทับ / คำรามปล่อยคลื่น (เมื่อเลือดต่ำกว่าครึ่ง) — มีกรอบแดงเตือนก่อนทุกท่า
 
 const GRAVITY := 1800.0
-const MAX_HP := 650.0
-const BOSS_NAME := "พญาเสือโคร่ง"
-const SIZE := Vector2(170, 118)
 
-var hp := MAX_HP
+var zodiac_id := "tiger"
+var boss_name := ""
+var max_hp := 650.0
+var SIZE := Vector2(170, 118)
+var cfg := {}
+var hp := 650.0
 var facing := -1
 var state := "idle"
 var arena_left := 100.0
@@ -28,6 +30,19 @@ var _hold_t := 0.0
 var _walk_t := 0.0
 
 
+## สร้างนักษัตรตามรหัส (เช่น "rat", "tiger")
+static func create(id: String) -> ZodiacBoss:
+	var b := ZodiacBoss.new()
+	var z := Zodiac.get_data(id)
+	b.zodiac_id = id
+	b.cfg = z["boss"]
+	b.boss_name = b.cfg["name"]
+	b.max_hp = float(b.cfg["hp"])
+	b.hp = b.max_hp
+	b.SIZE = b.cfg["size"]
+	return b
+
+
 func _init() -> void:
 	collision_layer = 4
 	collision_mask = 1
@@ -42,7 +57,11 @@ func _ready() -> void:
 	shape.shape = rect
 	shape.position = Vector2(0, -SIZE.y * 0.5)
 	add_child(shape)
-	var tex: Texture2D = load("res://assets/art/tiger_boss.png")
+	var prefix: String = cfg.get("frames", "tiger_boss")
+	var still := "res://assets/art/%s.png" % prefix
+	if not ResourceLoader.exists(still):
+		still = "res://assets/art/frames/%s_walk_3.png" % prefix
+	var tex: Texture2D = load(still)
 	_sprite = Sprite2D.new()
 	_sprite.texture = tex
 	_sprite.centered = false
@@ -51,7 +70,7 @@ func _ready() -> void:
 	add_child(_sprite)
 	var poses := ["walk_0", "walk_1", "walk_2", "walk_3", "crouch_0", "leap_0", "swipe_0", "roar_0"]
 	for pose in poses:
-		var path := "res://assets/art/frames/tiger_boss_%s.png" % pose
+		var path := "res://assets/art/frames/%s_%s.png" % [prefix, pose]
 		if ResourceLoader.exists(path):
 			_tex[pose] = load(path)
 	if _tex.size() != poses.size():
@@ -68,7 +87,7 @@ func get_hurt_rect() -> Rect2:
 
 
 func _phase2() -> bool:
-	return hp < MAX_HP * 0.5
+	return hp < max_hp * 0.5
 
 
 func _set_state(s: String, t: float) -> void:
@@ -110,8 +129,8 @@ func _physics_process(delta: float) -> void:
 				_choose_action(dist)
 		"walk":
 			facing = 1 if dx > 0.0 else -1
-			velocity.x = facing * (220.0 if _phase2() else 160.0)
-			if dist < 200.0:
+			velocity.x = facing * float(cfg["walk"][1] if _phase2() else cfg["walk"][0])
+			if dist < float(cfg["reach"]) - 40.0:
 				_start_claw()
 			elif _state_t <= 0.0:
 				_set_state("idle", 0.2)
@@ -122,7 +141,7 @@ func _physics_process(delta: float) -> void:
 				Fx.spawn(get_parent(), global_position + Vector2(facing * 60, -70), "claw", Vector2(220, 150), Color(1, 0.3, 0.2), facing, 0.3)
 				Sound.play("claw", 0.05, 2.0)
 				if rect.intersects(p.get_hurt_rect()):
-					p.take_damage(16.0, global_position.x)
+					p.take_damage(float(cfg["claw"]), global_position.x)
 				_hold = "swipe_0"
 				_hold_t = 0.4
 				_set_state("recover", 0.45 if _phase2() else 0.7)
@@ -141,20 +160,21 @@ func _physics_process(delta: float) -> void:
 				Game.shake(11.0, 0.3)
 				Sound.play("heavy_hit", 0.04, 3.0)
 				if rect.intersects(p.get_hurt_rect()):
-					p.take_damage(20.0, global_position.x)
+					p.take_damage(float(cfg["pounce"]), global_position.x)
 				_set_state("recover", 0.6 if _phase2() else 0.9)
 		"roar_tel":
 			velocity.x = 0.0
 			if _state_t <= 0.0:
 				for i in 3:
 					Fx.spawn(get_parent(), global_position + Vector2(facing * 70, -90), "ring", Vector2(140 + i * 70, 200), Color(1, 0.75, 0.25), 1, 0.4 + i * 0.15)
-				Game.spawn_text(global_position + Vector2(-60, -230), "โฮก!!", Color(1.0, 0.75, 0.3), 56)
+				Game.spawn_text(global_position + Vector2(-60, -SIZE.y - 110.0), cfg["shout"], Color(1.0, 0.75, 0.3), 56)
 				Game.shake(10.0, 0.5)
 				Sound.play("roar", 0.03, 2.0)
 				_pulse = 1.0
 				for d in [-1, 1]:
 					var wave := Shockwave.new()
 					wave.dir = d
+					wave.dmg = float(cfg["wave"])
 					get_parent().add_child(wave)
 					wave.global_position = global_position + Vector2(d * 70, 0)
 				_hold = "roar_0"
@@ -169,15 +189,15 @@ func _physics_process(delta: float) -> void:
 	global_position.x = clampf(global_position.x, arena_left, arena_right)
 
 	if _contact_cd <= 0.0 and get_hurt_rect().grow(-10.0).intersects(p.get_hurt_rect()):
-		p.take_damage(10.0, global_position.x)
+		p.take_damage(float(cfg["contact"]), global_position.x)
 		_contact_cd = 0.5
 
 
 func _choose_action(dist: float) -> void:
 	if _phase2() and randf() < 0.3:
-		_set_state("roar_tel", 0.8)
+		_set_state("roar_tel", 0.8 * float(cfg["tel"]))
 		return
-	if dist < 220.0:
+	if dist < float(cfg["reach"]) - 20.0:
 		if randf() < 0.75:
 			_start_claw()
 		else:
@@ -195,19 +215,20 @@ func _choose_action(dist: float) -> void:
 
 
 func _claw_rect() -> Rect2:
-	var w := 240.0
+	var w := float(cfg["reach"])
 	var x0 := global_position.x if facing > 0 else global_position.x - w
-	return Rect2(Vector2(x0, global_position.y - 150.0), Vector2(w, 150.0))
+	var h := maxf(SIZE.y + 30.0, 110.0)
+	return Rect2(Vector2(x0, global_position.y - h), Vector2(w, h))
 
 
 func _start_claw() -> void:
-	var t := 0.38 if _phase2() else 0.5
+	var t := (0.38 if _phase2() else 0.5) * float(cfg["tel"])
 	_set_state("claw_tel", t)
 	Fx.spawn(get_parent(), _claw_rect().position, "warn", _claw_rect().size, Color(1, 0.2, 0.2), 1, t)
 
 
 func _start_pounce() -> void:
-	var t := 0.5 if _phase2() else 0.65
+	var t := (0.5 if _phase2() else 0.65) * float(cfg["tel"])
 	_target_x = clampf(Game.player.global_position.x, arena_left, arena_right)
 	_set_state("pounce_tel", t)
 	Fx.spawn(get_parent(), Vector2(_target_x - 170.0, global_position.y - 110.0), "warn", Vector2(340, 110), Color(1, 0.5, 0.1), 1, t + 0.7)
@@ -226,7 +247,7 @@ func take_hit(dmg: float, _dir: float, _stun: float) -> void:
 		_pulse = 1.0
 		Fx.spawn(get_parent(), global_position + Vector2(0, -60), "ring", Vector2(260, 260), Color(1.0, 0.3, 0.2), 1, 0.6)
 		Fx.spawn(get_parent(), global_position, "pillar", Vector2(90, 320), Color(1.0, 0.3, 0.2), 1, 0.6)
-		Game.spawn_text(global_position + Vector2(-70, -200), "โกรธแล้ว!", Color(1.0, 0.4, 0.3), 46)
+		Game.spawn_text(global_position + Vector2(-70, -SIZE.y - 80.0), "เอาจริงแล้วนะ!", Color(1.0, 0.4, 0.3), 46)
 		Game.shake(10.0, 0.5)
 		Sound.play("roar", 0.02, 2.0)
 	Game.spawn_number(global_position + Vector2(0, -SIZE.y - 20.0), str(int(dmg)), Color(1, 0.95, 0.5))
@@ -243,7 +264,7 @@ func take_hit(dmg: float, _dir: float, _stun: float) -> void:
 		Game.shake(14.0, 0.6)
 		Game.hit_stop(0.25)
 		Sound.play("boss_die")
-		Game.on_boss_defeated("tiger", global_position)
+		Game.on_boss_defeated(zodiac_id, global_position)
 
 
 func _draw() -> void:
@@ -296,4 +317,4 @@ func _draw() -> void:
 		_sprite.scale = Vector2(0.5 * big, 0.5 * big * (1.0 + sin(_t * 4.0) * 0.012))
 		_sprite.position = Vector2(facing * lunge, 5)
 		_sprite.rotation = 0.0
-	Art.shadow(self, Vector2(0, 3), 100.0)
+	Art.shadow(self, Vector2(0, 3), SIZE.x * 0.6)

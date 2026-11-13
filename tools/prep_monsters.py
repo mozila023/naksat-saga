@@ -1,6 +1,7 @@
 """ตัดชีตท่าทางของมอนสเตอร์และบอส (เฟรมเรียงเป็นแถวหรือเป็นตาราง บนพื้นเขียว/ชมพู) ออกเป็นเฟรมเดี่ยวพื้นใส
 
-ใช้: python3 tools/prep_monsters.py <โฟลเดอร์ภาพต้นฉบับ> assets/art/frames
+ใช้: python3 tools/prep_monsters.py <โฟลเดอร์ภาพต้นฉบับ> assets/art/frames [ชื่อ ...]
+    (ไม่ใส่ชื่อ = ทำทุกตัว, ใส่ เช่น rat_boss = ทำเฉพาะตัวนั้น)
 """
 import sys
 import numpy as np
@@ -15,7 +16,10 @@ SHEETS = [
     ("naksat_mushroom_walk", "mushroom", 1, ["walk_0", "walk_1", "walk_2", "walk_3"], 1, 168.0, (220, 200), (110, 150)),
     ("naksat_tiger_boss_walk", "tiger_boss", 2, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 300.0, (680, 420), (50, 90)),
     ("naksat_tiger_boss_actions", "tiger_boss", 2, ["crouch_0", "leap_0", "swipe_0", "roar_0"], None, 300.0, (680, 420), (50, 90)),
+    ("naksat_rat_boss_walk", "rat_boss", 2, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 150.0, (560, 300), (50, 90)),
+    ("naksat_rat_boss_actions", "rat_boss", 2, ["crouch_0", "leap_0", "swipe_0", "roar_0"], None, 150.0, (560, 300), (50, 90)),
 ]
+ONLY = set(sys.argv[3:])
 
 
 # เฟรมที่ AI วาดหันผิดด้าน (ต้องหันซ้ายเหมือนเฟรมอื่น) ให้กลับด้าน
@@ -77,6 +81,8 @@ def split(rgba, rows, total):
 
 scales = {}
 for src, name, rows, names, ref, target_h, canvas_size, (lo, hi) in SHEETS:
+    if ONLY and name not in ONLY:
+        continue
     frames = split(key_out(Image.open(f"{SRC}/{src}.png"), lo, hi), rows, len(names))
     if ref is not None:
         scales[name] = target_h / frames[ref].shape[0]

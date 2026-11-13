@@ -642,7 +642,7 @@ func _build_boss_bar() -> void:
 func _build_banner() -> void:
 	_banner = _label("", 34, Color(1.0, 0.95, 0.7), 10)
 	_banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_banner.position = Vector2(-500, 170)
+	_banner.position = Vector2(-500, 230)
 	_banner.size = Vector2(1000, 100)
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner.modulate.a = 0.0
@@ -750,8 +750,8 @@ func _process(delta: float) -> void:
 	var boss := Game.boss
 	if boss and is_instance_valid(boss) and boss.is_alive():
 		_boss_box.visible = true
-		_boss_label.text = boss.BOSS_NAME
-		_boss_bar.max_value = boss.MAX_HP
+		_boss_label.text = boss.boss_name
+		_boss_bar.max_value = boss.max_hp
 		_boss_bar.value = boss.hp
 	else:
 		_boss_box.visible = false
