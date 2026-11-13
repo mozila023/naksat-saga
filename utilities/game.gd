@@ -25,9 +25,9 @@ const POTION_HEAL := 50.0
 # ---------- รางวัลจากมอนสเตอร์ ----------
 # coins = [จำนวนเหรียญต่ำสุด, สูงสุด], coin_value = [มูลค่าต่อเหรียญต่ำสุด, สูงสุด], drops = [[ไอเทม, โอกาส 0..1], ...]
 const REWARDS := {
-	"frog": {"exp": 8, "coins": [1, 2], "coin_value": [2, 4], "drops": [["frog_leg", 0.4], ["potion", 0.06]]},
-	"mushroom": {"exp": 18, "coins": [1, 3], "coin_value": [3, 6], "drops": [["mushroom_cap", 0.4], ["potion", 0.1]]},
-	"tiger": {"exp": 250, "coins": [8, 8], "coin_value": [10, 14], "drops": [["tiger_fang", 1.0], ["potion", 1.0], ["potion", 1.0]]},
+	"frog": {"exp": 8, "coins": [1, 2], "coin_value": [2, 4], "drops": [["frog_leg", 0.4], ["potion", 0.012]]},
+	"mushroom": {"exp": 18, "coins": [1, 3], "coin_value": [3, 6], "drops": [["mushroom_cap", 0.4], ["potion", 0.025]]},
+	"tiger": {"exp": 250, "coins": [8, 8], "coin_value": [10, 14], "drops": [["tiger_fang", 1.0], ["potion", 1.0]]},
 }
 
 var main: Node

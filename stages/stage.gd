@@ -22,6 +22,7 @@ var _props: Array = []
 var _spawners: Array = []
 var _t := 0.0
 var _layered := false
+var _road_top := 0.0
 
 
 func _ready() -> void:
@@ -60,7 +61,9 @@ func _make_art_background() -> void:
 		_layered = true
 		_add_art_layer(far, 0.92, 400.0 - far.get_height() * 0.92, 0.1, -13)
 		_add_art_layer(mid, s, road_top + 2.0 - mid.get_height() * s, 0.32, -12)
-		_add_art_layer(near, s, road_top + 6.0 - near.get_height() * s, 0.68, -11)
+		# ชั้นต้นไม้/รั้วยืนอยู่บนขอบถนน จึงต้องเลื่อนเท่าถนน (ไม่งั้นโคนจะไถลเหมือนลอย)
+		_add_art_layer(near, s, road_top + 8.0 - near.get_height() * s, 1.0, -11)
+		_road_top = road_top
 	else:
 		# ภาพเดียวทั้งฉาก (เช่น ในถ้ำ): วิวเลื่อนช้ากว่าตัวละคร ส่วนพื้นเลื่อนเท่าตัวละคร
 		_add_art_layer(bg, s, 0.0, 0.5, -10)
@@ -271,6 +274,10 @@ func _draw() -> void:
 	var x1 := cx + 1400.0
 	if not has_art():
 		_draw_ground(x0, x1)
+	elif _layered:
+		# เงาจาง ๆ ตรงโคนต้นไม้/รั้วที่ขอบถนน ให้ดูติดพื้น
+		Art.vgrad(self, Rect2(x0, _road_top - 10.0, x1 - x0, 12.0), Color(0.1, 0.15, 0.05, 0.0), Color(0.1, 0.15, 0.05, 0.32))
+		Art.vgrad(self, Rect2(x0, _road_top + 2.0, x1 - x0, 14.0), Color(0.1, 0.1, 0.05, 0.3), Color(0.1, 0.1, 0.05, 0.0))
 	for p in _props:
 		if p["x"] > x0 - 300.0 and p["x"] < x1 + 300.0:
 			_draw_prop(p)

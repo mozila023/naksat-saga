@@ -18,6 +18,10 @@ SHEETS = [
 ]
 
 
+# เฟรมที่ AI วาดหันผิดด้าน (ต้องหันซ้ายเหมือนเฟรมอื่น) ให้กลับด้าน
+FLIP = {("frog", "hop_1")}
+
+
 def key_out(im, lo, hi):
     a = np.asarray(im.convert("RGB")).astype(np.float32)
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
@@ -79,6 +83,8 @@ for src, name, rows, names, ref, target_h, canvas_size, (lo, hi) in SHEETS:
     s = scales[name]
     for fname, fr in zip(names, frames):
         im = Image.fromarray(fr, "RGBA")
+        if (name, fname) in FLIP:
+            im = im.transpose(Image.FLIP_LEFT_RIGHT)
         im = im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))), Image.LANCZOS)
         canvas = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
         canvas.alpha_composite(im, ((canvas_size[0] - im.width) // 2, canvas_size[1] - im.height))
