@@ -35,15 +35,17 @@ func _ready() -> void:
 
 
 func _setup_input() -> void:
-	_add_action("move_left", [KEY_A, KEY_LEFT])
-	_add_action("move_right", [KEY_D, KEY_RIGHT])
-	_add_action("move_down", [KEY_S, KEY_DOWN])
+	# ปุ่ม: ลูกศรเดิน, Space กระโดด, Shift วิ่งไว, C โจมตี, A S D สกิล, ↑ คุย/เข้าประตู, Q E สลับร่าง
+	_add_action("move_left", [KEY_LEFT])
+	_add_action("move_right", [KEY_RIGHT])
+	_add_action("move_down", [KEY_DOWN])
 	_add_action("jump", [KEY_SPACE])
-	_add_action("attack", [KEY_J])
-	_add_action("skill_1", [KEY_U])
-	_add_action("skill_2", [KEY_I])
-	_add_action("skill_3", [KEY_O])
-	_add_action("interact", [KEY_W, KEY_UP])
+	_add_action("run", [KEY_SHIFT])
+	_add_action("attack", [KEY_C])
+	_add_action("skill_1", [KEY_A])
+	_add_action("skill_2", [KEY_S])
+	_add_action("skill_3", [KEY_D])
+	_add_action("interact", [KEY_UP])
 	_add_action("form_prev", [KEY_Q])
 	_add_action("form_next", [KEY_E])
 

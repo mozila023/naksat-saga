@@ -2,7 +2,7 @@ class_name Hud extends CanvasLayer
 ## หน้าจอ HUD: หลอดเลือด, ร่างปัจจุบัน, เควส, ช่องสกิล, หลอดเลือดบอส, กล่องบทสนทนา, ปุ่มสัมผัส (มือถือ)
 
 const OUTLINE := Color(0.12, 0.08, 0.05)
-const SLOT_KEYS := ["J", "U", "I", "O"]
+const SLOT_KEYS := ["C", "A", "S", "D"]
 
 var _root: Control
 var _form_swatch: Panel
@@ -259,7 +259,7 @@ func _build_dialogue() -> void:
 	_dlg_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_dialogue.add_child(_dlg_text)
 
-	var hint := _label("กด W / J / แตะจอ เพื่อไปต่อ ▶", 16, Color(0.5, 0.4, 0.3), 0)
+	var hint := _label("กด ↑ / C / แตะจอ เพื่อไปต่อ ▶", 16, Color(0.5, 0.4, 0.3), 0)
 	hint.position = Vector2(26, 156)
 	hint.size = Vector2(888, 24)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -304,7 +304,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _build_help() -> void:
 	if DisplayServer.is_touchscreen_available():
 		return
-	var help := _label("A/D เดิน   Space กระโดด   S+Space ลงแท่น\nJ ตี   U I O สกิล   Q/E สลับร่าง\nW คุย/เข้าประตู   F9 เริ่มเกมใหม่", 15, Color(1, 1, 1, 0.92), 5)
+	var help := _label("← → เดิน   Shift วิ่งไว   Space กระโดด\nC โจมตี   A S D สกิล   Q/E สลับร่าง\n↑ คุย/เข้าประตู   ↓+Space ลงแท่น   F9 เริ่มใหม่", 15, Color(1, 1, 1, 0.92), 5)
 	help.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	help.position = Vector2(16, -84)
 	help.add_theme_constant_override("line_spacing", -4)
@@ -347,7 +347,8 @@ func _build_touch() -> void:
 	_root.add_child(left)
 	_touch_button(left, Vector2(30, -170), 60, "◀", "move_left")
 	_touch_button(left, Vector2(170, -170), 60, "▶", "move_right")
-	_touch_button(left, Vector2(100, -290), 46, "▼", "move_down")
+	_touch_button(left, Vector2(40, -290), 46, "▼", "move_down")
+	_touch_button(left, Vector2(180, -290), 46, "วิ่ง", "run")
 
 	var right := Control.new()
 	right.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)

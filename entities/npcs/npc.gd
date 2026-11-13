@@ -9,7 +9,7 @@ var _t := 0.0
 
 
 func _ready() -> void:
-	prompt = "กด W / ↑ เพื่อคุย"
+	prompt = "กด ↑ เพื่อคุย"
 	label_height = 100.0
 	super()
 	_visual = ChibiVisual.new()
@@ -34,8 +34,7 @@ func interact() -> void:
 
 func _draw() -> void:
 	if has_quest_mark.is_valid() and has_quest_mark.call():
-		var y := -132.0 + sin(_t * 4.0) * 5.0
-		draw_circle(Vector2(0, y), 15.0, Color(0.2, 0.12, 0.05))
-		draw_circle(Vector2(0, y), 12.5, Color(1.0, 0.85, 0.2))
-		draw_rect(Rect2(-2, y - 8, 4, 10), Color(0.2, 0.12, 0.05))
-		draw_rect(Rect2(-2, y + 4, 4, 4), Color(0.2, 0.12, 0.05))
+		var y := -label_height - 84.0 + sin(_t * 4.0) * 5.0
+		Art.blob(self, Vector2(0, y), 13.0, 13.0, Color(1.0, 0.86, 0.25))
+		Art.rrect(self, Rect2(-2.5, y - 8, 5, 10), Art.INK, 2.5)
+		Art.circle(self, Vector2(0, y + 6), 2.6, Art.INK)

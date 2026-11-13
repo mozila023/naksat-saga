@@ -1,7 +1,7 @@
 class_name Interactable extends Node2D
-## ของที่ผู้เล่นเดินไปกด W / ↑ ใส่ได้ (ชาวบ้าน, ประตูวาร์ป)
+## ของที่ผู้เล่นเดินไปกด ↑ ใส่ได้ (ชาวบ้าน, ประตูวาร์ป)
 
-var prompt := "กด W"
+var prompt := "กด ↑"
 var title := ""
 var reach := 80.0
 var label_height := 120.0
@@ -12,9 +12,9 @@ var _title_label: Label
 func _ready() -> void:
 	add_to_group("interactables")
 	_title_label = _make_label(title, 20, Color(1, 1, 1))
-	_title_label.position = Vector2(-150, 6)
+	_title_label.position = Vector2(-150, -label_height - 30)
 	_prompt_label = _make_label(prompt, 20, Color(1, 0.95, 0.5))
-	_prompt_label.position = Vector2(-150, -label_height - 34)
+	_prompt_label.position = Vector2(-150, -label_height - 58)
 	_prompt_label.visible = false
 
 

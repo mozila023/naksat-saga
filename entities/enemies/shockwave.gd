@@ -27,6 +27,9 @@ func _draw() -> void:
 	var a := clampf((life - _t) * 2.0, 0.0, 1.0)
 	var wob := sin(_t * 20.0) * 4.0
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(dir, 1))
-	draw_colored_polygon(PackedVector2Array([Vector2(-26, 0), Vector2(-10, -50 + wob), Vector2(8, -24), Vector2(22, -44 - wob), Vector2(26, 0)]), Color(1.0, 0.75, 0.2, 0.85 * a))
-	draw_colored_polygon(PackedVector2Array([Vector2(-16, 0), Vector2(-4, -28 + wob), Vector2(14, -22), Vector2(16, 0)]), Color(1.0, 0.95, 0.7, 0.9 * a))
+	Art.glow(self, Vector2(0, -20), 46.0, Color(1.0, 0.7, 0.2, 0.8 * a))
+	# เปลวคลื่น 3 ชั้น
+	Art.leaf(self, Vector2(-22, 0), Vector2(-20, -40), Vector2(6, -58 + wob), 13.0, Color(1.0, 0.55, 0.15, 0.9 * a), Color(1, 0.8, 0.4, a))
+	Art.leaf(self, Vector2(-4, 0), Vector2(0, -30), Vector2(22, -46 - wob), 12.0, Color(1.0, 0.72, 0.2, 0.95 * a), Color(1, 0.9, 0.6, a))
+	Art.leaf(self, Vector2(8, 0), Vector2(12, -18), Vector2(28, -28 + wob), 9.0, Color(1.0, 0.92, 0.6, a), Color(1, 1, 1, a))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

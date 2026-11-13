@@ -123,43 +123,66 @@ func take_hit(dmg: float, dir: float, stun: float) -> void:
 
 
 func _draw() -> void:
-	var tint := Color(1, 1, 1) if _flash > 0.0 else Color(0, 0, 0, 0)
-	var outline := Color(0.15, 0.2, 0.1)
-	var squash := 1.0 + sin(_t * 6.0) * 0.04
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(facing, squash))
+	modulate = Color(2.2, 2.2, 2.2, modulate.a) if _flash > 0.0 else Color(1, 1, 1, modulate.a)
+	var ink := Art.INK
+	# ยืดหดตามจังหวะกระโดด ให้ดูนุ่ม
+	var stretch := clampf(-velocity.y / 900.0, -0.18, 0.22)
+	var breathe := sin(_t * 5.0) * 0.03
+	Art.shadow(self, Vector2(0, 1), 24.0)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(facing * (1.0 - stretch * 0.6), 1.0 + stretch + breathe))
 	if kind == "frog":
-		var body := Color(0.45, 0.78, 0.3).lerp(Color.WHITE, tint.a * 0.8)
-		draw_circle(Vector2(0, -15), 21.0, outline)
-		draw_circle(Vector2(0, -15), 19.0, body)
-		draw_circle(Vector2(3, -9), 13.0, Color(0.85, 0.95, 0.6).lerp(Color.WHITE, tint.a * 0.8))
+		var green := Color(0.5, 0.82, 0.36)
+		# ขาหลัง
+		Art.blob(self, Vector2(-17, -6), 9.0, 6.0, green.darkened(0.12), 2.5)
+		Art.blob(self, Vector2(15, -5), 8.0, 5.5, green.darkened(0.12), 2.5)
+		# ตัว
+		Art.blob(self, Vector2(0, -17), 22.0, 17.0, green)
+		Art.ellipse(self, Vector2(3, -11), 15.0, 10.0, Color(0.9, 0.97, 0.66))
+		Art.ellipse(self, Vector2(-8, -26), 7.0, 4.0, Color(1, 1, 1, 0.25))
+		# ตาโต
 		for sx in [-9.0, 11.0]:
-			draw_circle(Vector2(sx, -33), 8.0, outline)
-			draw_circle(Vector2(sx, -33), 6.5, Color.WHITE)
-			draw_circle(Vector2(sx + 2, -33), 3.0, Color.BLACK)
-		draw_arc(Vector2(6, -16), 7.0, 0.2, PI - 0.2, 8, outline, 2.0)
-		draw_rect(Rect2(-22, -5, 12, 5), outline)
-		draw_rect(Rect2(10, -5, 12, 5), outline)
+			Art.blob(self, Vector2(sx, -34), 8.0, 8.0, Color.WHITE, 2.5)
+			Art.circle(self, Vector2(sx + 2.5, -33.5), 4.0, Color(0.15, 0.1, 0.1))
+			Art.circle(self, Vector2(sx + 3.6, -35.2), 1.4, Color.WHITE)
+		# แก้ม + ปาก
+		Art.ellipse(self, Vector2(-9, -15), 4.0, 2.6, Color(1.0, 0.5, 0.55, 0.55))
+		Art.ellipse(self, Vector2(18, -15), 3.2, 2.4, Color(1.0, 0.5, 0.55, 0.55))
+		draw_arc(Vector2(6, -18), 7.0, 0.25, PI - 0.25, 10, ink, 2.2, true)
 	else:
-		var cap := Color(0.75, 0.3, 0.75).lerp(Color.WHITE, tint.a * 0.8)
-		draw_rect(Rect2(-13, -28, 26, 28), outline)
-		draw_rect(Rect2(-11, -28, 22, 26), Color(0.97, 0.93, 0.82))
-		draw_circle(Vector2(0, -34), 25.0, outline)
-		draw_circle(Vector2(0, -34), 23.0, cap)
-		draw_rect(Rect2(-25, -34, 50, 8), Color(0.97, 0.93, 0.82))
-		draw_circle(Vector2(-10, -44), 5.0, Color(1, 1, 1, 0.9))
-		draw_circle(Vector2(9, -48), 4.0, Color(1, 1, 1, 0.9))
-		draw_circle(Vector2(4, -16), 3.0, Color.BLACK)
-		draw_circle(Vector2(12, -16), 3.0, Color.BLACK)
-		draw_line(Vector2(1, -22), Vector2(7, -20), outline, 2.0)
-		draw_line(Vector2(15, -22), Vector2(9, -20), outline, 2.0)
+		var cap := Color(0.8, 0.38, 0.8)
+		# ก้าน
+		Art.box(self, Rect2(-13, -30, 26, 30), Color(1.0, 0.95, 0.85), 9.0)
+		# หมวกเห็ด (ครึ่งวงรี)
+		var top := PackedVector2Array()
+		var top_ink := PackedVector2Array()
+		for i in 17:
+			var a := PI + PI * i / 16.0
+			top.append(Vector2(cos(a) * 26.0, -30 + sin(a) * 26.0))
+			top_ink.append(Vector2(cos(a) * 29.0, -29 + sin(a) * 29.0))
+		top_ink.append(Vector2(29, -24))
+		top_ink.append(Vector2(-29, -24))
+		Art.poly(self, top_ink, ink)
+		Art.poly(self, top, cap)
+		Art.rrect(self, Rect2(-27, -32, 54, 7), cap.darkened(0.18), 3.0)
+		Art.ellipse(self, Vector2(-11, -44), 6.0, 5.0, Color(1, 1, 1, 0.9))
+		Art.ellipse(self, Vector2(9, -48), 4.5, 4.0, Color(1, 1, 1, 0.9))
+		Art.ellipse(self, Vector2(17, -38), 3.0, 2.6, Color(1, 1, 1, 0.9))
+		# หน้าบึ้ง
+		for sx in [3.0, 12.0]:
+			Art.ellipse(self, Vector2(sx, -15), 2.8, 3.6, Color(0.2, 0.12, 0.12))
+			Art.circle(self, Vector2(sx + 0.9, -16.2), 1.0, Color.WHITE)
+		Art.line(self, Vector2(0, -22), Vector2(5, -20), ink, 2.0)
+		Art.line(self, Vector2(15, -22), Vector2(10, -20), ink, 2.0)
+		Art.ellipse(self, Vector2(-3, -9), 3.4, 2.2, Color(1.0, 0.5, 0.55, 0.5))
+		draw_arc(Vector2(7.5, -6), 3.0, PI + 0.3, TAU - 0.3, 8, ink, 2.0, true)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	# หลอดเลือด (แสดงเมื่อโดนตีแล้ว)
 	if hp < max_hp and not _dying:
-		var top: float = -_stats["size"].y - 26.0
-		draw_rect(Rect2(-24, top, 48, 7), Color(0, 0, 0, 0.6))
-		draw_rect(Rect2(-23, top + 1, 46.0 * clampf(hp / max_hp, 0.0, 1.0), 5), Color(0.95, 0.3, 0.3))
+		var top_y: float = -_stats["size"].y - 28.0
+		Art.rrect(self, Rect2(-26, top_y, 52, 9), Color(0.2, 0.12, 0.1, 0.85), 4.5)
+		Art.rrect(self, Rect2(-24, top_y + 2, 48.0 * clampf(hp / max_hp, 0.0, 1.0), 5), Color(0.98, 0.4, 0.4), 2.5)
 	if _stun > 0.5:
 		for i in 3:
 			var a := _t * 6.0 + i * TAU / 3.0
-			draw_circle(Vector2(cos(a) * 16.0, -_stats["size"].y - 12.0 + sin(a) * 4.0), 3.5, Color(1, 0.95, 0.3))
+			Art.circle(self, Vector2(cos(a) * 18.0, -_stats["size"].y - 14.0 + sin(a) * 5.0), 4.0, Color(1, 0.92, 0.3))

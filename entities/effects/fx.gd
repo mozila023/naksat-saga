@@ -31,32 +31,44 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var p := clampf(_t / life, 0.0, 1.0)
-	var c := color
-	c.a *= 1.0 - p
+	var fade := 1.0 - p
+	var c := Color(color.r, color.g, color.b, color.a * fade)
+	var white := Color(1, 1, 1, 0.9 * fade)
 	match kind:
 		"slash":
-			var a0 := -1.1 + p * 0.6
-			var a1 := 1.1 + p * 0.3
-			if dir < 0:
-				draw_arc(Vector2.ZERO, size.x * 0.75, PI - a1, PI - a0, 16, c, 14.0 * (1.0 - p) + 3.0)
-			else:
-				draw_arc(Vector2.ZERO, size.x * 0.75, a0, a1, 16, c, 14.0 * (1.0 - p) + 3.0)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2(dir, 1))
+			var r := size.x * 0.72
+			var a0 := -1.25 + p * 0.9
+			var a1 := 1.15 + p * 0.35
+			# เสี้ยวพระจันทร์ซ้อนกัน 3 ชั้นให้ดูนุ่ม
+			draw_arc(Vector2.ZERO, r, a0, a1, 24, Color(c.r, c.g, c.b, c.a * 0.35), 22.0 * fade + 4.0, true)
+			draw_arc(Vector2.ZERO, r, a0 + 0.15, a1 - 0.1, 24, Color(c.r, c.g, c.b, c.a * 0.7), 12.0 * fade + 3.0, true)
+			draw_arc(Vector2.ZERO, r + 2.0, a0 + 0.3, a1 - 0.2, 24, white, 4.0 * fade + 1.0, true)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		"claw":
 			for i in 3:
 				var y := (i - 1) * size.y * 0.28
-				var from := Vector2(dir * size.x * 0.15, y - size.y * 0.25)
-				var to := Vector2(dir * size.x * (0.5 + p * 0.5), y + size.y * 0.25)
-				draw_line(from, to, c, 9.0 * (1.0 - p) + 2.0)
+				var a := Vector2(dir * size.x * 0.12, y - size.y * 0.26)
+				var b := Vector2(dir * size.x * (0.55 + p * 0.45), y + size.y * 0.26)
+				var ctrl := (a + b) * 0.5 + Vector2(dir * 26.0, -10.0)
+				var pts := Art.bezier(a, ctrl, b, 10)
+				draw_polyline(pts, Color(c.r, c.g, c.b, c.a * 0.5), 14.0 * fade + 3.0, true)
+				draw_polyline(pts, white, 5.0 * fade + 1.0, true)
 		"ring":
-			var r := size.x * (0.25 + 0.75 * p)
-			draw_arc(Vector2.ZERO, r, 0, TAU, 40, c, 12.0 * (1.0 - p) + 2.0)
-			draw_arc(Vector2.ZERO, r * 0.6, 0, TAU, 32, Color(c.r, c.g, c.b, c.a * 0.5), 6.0)
+			var r := size.x * (0.25 + 0.75 * ease(p, 0.4))
+			draw_arc(Vector2.ZERO, r, 0, TAU, 48, Color(c.r, c.g, c.b, c.a * 0.35), 26.0 * fade + 2.0, true)
+			draw_arc(Vector2.ZERO, r, 0, TAU, 48, c, 10.0 * fade + 2.0, true)
+			draw_arc(Vector2.ZERO, r * 0.97, 0, TAU, 48, white, 3.0 * fade + 0.5, true)
+			for i in 8:
+				var ang := i * TAU / 8.0 + 0.3
+				Art.circle(self, Vector2.RIGHT.rotated(ang) * r * 1.08, 5.0 * fade, white)
 		"puff":
-			for i in 6:
-				var ang := i * TAU / 6.0
-				draw_circle(Vector2.RIGHT.rotated(ang) * size.x * p, size.y * (1.0 - p * 0.6), c)
+			for i in 7:
+				var ang := i * TAU / 7.0
+				Art.circle(self, Vector2.RIGHT.rotated(ang) * size.x * ease(p, 0.4), size.y * (1.0 - p * 0.7) + 2.0, c)
 		"warn":
 			# กรอบเตือนพื้นที่ที่บอสกำลังจะตี (จุดกำเนิดคือมุมซ้ายบน)
-			var blink := 0.35 + 0.25 * sin(_t * 30.0)
-			draw_rect(Rect2(Vector2.ZERO, size), Color(color.r, color.g, color.b, blink * 0.6))
-			draw_rect(Rect2(Vector2.ZERO, size), Color(color.r, color.g, color.b, 0.9), false, 3.0)
+			var blink := 0.3 + 0.2 * sin(_t * 26.0)
+			var r := Rect2(Vector2.ZERO, size)
+			Art.rrect(self, r, Color(color.r, color.g, color.b, 0.12 + blink * 0.5), 12.0)
+			draw_rect(r.grow(-2.0), Color(color.r, color.g, color.b, 0.95), false, 4.0, true)

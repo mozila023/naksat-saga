@@ -1,7 +1,9 @@
 class_name Player extends CharacterBody2D
 ## ตัวเอก: เดิน กระโดด ตี ใช้สกิล 3 ช่อง และสลับร่าง
 
-const SPEED := 300.0
+const SPEED := 280.0
+const RUN_MULT := 1.6  # กด Shift ค้างเพื่อวิ่งไว
+const ACCEL := 3200.0
 const JUMP_VELOCITY := -660.0
 const GRAVITY := 1800.0
 const BASE_ATK := 10.0
@@ -25,6 +27,9 @@ var _queued: Array = []  # การตีที่รอเวลา (สกิ
 var _drop_t := 0.0
 var _knock_t := 0.0
 var _regen_wait := 0.0
+var _was_on_floor := true
+var _squash := 0.0  # ยุบตัวตอนลงพื้น ให้ดูนุ่ม
+var _dust_t := 0.0
 
 
 func _init() -> void:
@@ -96,9 +101,17 @@ func _physics_process(delta: float) -> void:
 	elif _knock_t > 0.0:
 		velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
 	else:
-		velocity.x = dir * SPEED * float(form["speed"])
+		var running := not locked and Input.is_action_pressed("run")
+		var target := dir * SPEED * float(form["speed"]) * (RUN_MULT if running else 1.0)
+		velocity.x = move_toward(velocity.x, target, ACCEL * delta)
 		if dir != 0.0:
 			facing = 1 if dir > 0.0 else -1
+		visual.running = running and dir != 0.0
+		# ฝุ่นตอนวิ่งไว
+		_dust_t -= delta
+		if visual.running and is_on_floor() and _dust_t <= 0.0:
+			_dust_t = 0.16
+			Fx.spawn(get_parent(), global_position + Vector2(-facing * 14, -4), "puff", Vector2(12, 5), Color(1, 1, 1, 0.5), facing, 0.3)
 
 	if not locked and _dash_t <= 0.0:
 		if Input.is_action_just_pressed("jump") and is_on_floor():
@@ -124,7 +137,13 @@ func _physics_process(delta: float) -> void:
 	_process_dash_hits()
 	_process_queued(delta)
 
-	visual.scale.x = facing
+	if is_on_floor() and not _was_on_floor:
+		_squash = 1.0
+		Fx.spawn(get_parent(), global_position + Vector2(0, -4), "puff", Vector2(16, 5), Color(1, 1, 1, 0.45), facing, 0.25)
+	_was_on_floor = is_on_floor()
+	_squash = move_toward(_squash, 0.0, delta * 6.0)
+	var stretch := clampf(absf(velocity.y) / 1600.0, 0.0, 0.14) if not is_on_floor() else 0.0
+	visual.scale = Vector2(facing * (1.0 + _squash * 0.16 - stretch), 1.0 - _squash * 0.16 + stretch)
 	visual.moving = absf(velocity.x) > 10.0 and is_on_floor()
 	visual.in_air = not is_on_floor()
 	visual.swing = 1.0 - _swing_t / SWING_TIME if _swing_t > 0.0 else -1.0

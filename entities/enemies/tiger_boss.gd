@@ -194,56 +194,74 @@ func take_hit(dmg: float, _dir: float, _stun: float) -> void:
 
 
 func _draw() -> void:
-	var white := 0.85 if _flash > 0.0 else 0.0
+	modulate = Color(2.0, 2.0, 2.0, modulate.a) if _flash > 0.0 else Color(1, 1, 1, modulate.a)
 	var warn := state.ends_with("_tel") and int(_t * 14.0) % 2 == 0
-	var orange := Color(0.96, 0.58, 0.14).lerp(Color.WHITE, white)
+	var orange := Color(0.99, 0.64, 0.2)
 	if warn:
-		orange = orange.lerp(Color(1, 0.25, 0.2), 0.45)
-	if _phase2() and not _dead:
-		orange = orange.lerp(Color(1.0, 0.3, 0.1), 0.25)
-	var dark := Color(0.16, 0.1, 0.07)
-	var cream := Color(1.0, 0.93, 0.8).lerp(Color.WHITE, white)
+		orange = orange.lerp(Color(1, 0.3, 0.25), 0.45)
+	elif _phase2() and not _dead:
+		orange = orange.lerp(Color(1.0, 0.36, 0.14), 0.3)
+	var ink := Art.INK
+	var dark := Color(0.24, 0.15, 0.12)
+	var cream := Color(1.0, 0.95, 0.84)
 	var crouch := 0.82 if state == "pounce_tel" else 1.0 + sin(_t * 4.0) * 0.02
+	Art.shadow(self, Vector2(0, 2), 80.0)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(facing, crouch))
 
 	# หาง
-	var tail := PackedVector2Array([Vector2(-58, -50), Vector2(-84, -64), Vector2(-96, -92 + sin(_t * 5.0) * 8.0), Vector2(-86, -112 + sin(_t * 5.0) * 10.0)])
-	draw_polyline(tail, dark, 16.0)
-	draw_polyline(tail, orange, 11.0)
-	# ขา
-	for lx in [-48.0, -24.0, 18.0, 42.0]:
-		draw_rect(Rect2(lx - 10, -30, 20, 30), dark)
-		draw_rect(Rect2(lx - 8, -30, 16, 27), orange)
+	var sway := sin(_t * 5.0) * 9.0
+	var tail := Art.bezier(Vector2(-58, -52), Vector2(-104, -54), Vector2(-92, -112 + sway), 14)
+	Art.curve(self, tail, ink, 19.0)
+	Art.curve(self, tail, orange, 13.0)
+	for i in [4, 8, 12]:
+		Art.circle(self, tail[i], 6.0, dark)
+	# ขาหลัง (ไกล)
+	for lx in [-44.0, 22.0]:
+		Art.box(self, Rect2(lx - 9, -34, 20, 34), orange.darkened(0.14), 8.0)
 	# ลำตัว
-	draw_rect(Rect2(-66, -84, 124, 60), dark)
-	draw_rect(Rect2(-63, -81, 118, 54), orange)
-	draw_rect(Rect2(-50, -42, 90, 15), cream)
+	Art.blob(self, Vector2(-6, -56), 62.0, 32.0, orange)
+	Art.ellipse(self, Vector2(-4, -38), 46.0, 12.0, cream)
+	Art.ellipse(self, Vector2(-22, -76), 26.0, 7.0, Color(1, 1, 1, 0.16))
 	for i in 4:
-		var sx := -48.0 + i * 24.0
-		draw_colored_polygon(PackedVector2Array([Vector2(sx, -81), Vector2(sx + 10, -81), Vector2(sx + 5, -56)]), dark)
+		var sx := -50.0 + i * 24.0
+		Art.poly(self, PackedVector2Array([Vector2(sx, -84), Vector2(sx + 11, -86), Vector2(sx + 7, -60)]), dark)
+	# ขาหน้า (ใกล้)
+	for lx in [-26.0, 40.0]:
+		Art.box(self, Rect2(lx - 10, -34, 22, 34), orange, 9.0)
+		Art.rrect(self, Rect2(lx - 10, -11, 22, 11), cream, 6.0)
+		Art.line(self, Vector2(lx - 6, -24), Vector2(lx + 2, -22), dark, 3.0)
 	# หู
-	for ex in [36.0, 78.0]:
-		draw_circle(Vector2(ex, -120), 14.0, dark)
-		draw_circle(Vector2(ex, -120), 11.0, orange)
-		draw_circle(Vector2(ex, -119), 5.0, Color(1, 0.7, 0.7))
+	for ex in [32.0, 82.0]:
+		Art.blob(self, Vector2(ex, -122), 13.0, 13.0, orange)
+		Art.circle(self, Vector2(ex, -120), 6.0, Color(1, 0.74, 0.74))
 	# หัว
-	draw_circle(Vector2(57, -84), 42.0, dark)
-	draw_circle(Vector2(57, -84), 39.0, orange)
-	draw_circle(Vector2(64, -70), 22.0, cream)
-	draw_colored_polygon(PackedVector2Array([Vector2(52, -122), Vector2(62, -122), Vector2(57, -104)]), dark)
-	draw_colored_polygon(PackedVector2Array([Vector2(34, -116), Vector2(42, -119), Vector2(43, -102)]), dark)
-	draw_colored_polygon(PackedVector2Array([Vector2(72, -119), Vector2(80, -116), Vector2(71, -102)]), dark)
+	Art.blob(self, Vector2(57, -86), 42.0, 39.0, orange)
+	Art.ellipse(self, Vector2(22, -74), 9.0, 12.0, cream)
+	Art.ellipse(self, Vector2(92, -74), 9.0, 12.0, cream)
+	Art.ellipse(self, Vector2(62, -70), 23.0, 19.0, cream)
+	Art.ellipse(self, Vector2(40, -106), 16.0, 6.0, Color(1, 1, 1, 0.18))
+	# ลายหน้าผาก + แก้ม
+	Art.poly(self, PackedVector2Array([Vector2(52, -124), Vector2(62, -124), Vector2(57, -104)]), dark)
+	Art.poly(self, PackedVector2Array([Vector2(35, -118), Vector2(43, -121), Vector2(44, -104)]), dark)
+	Art.poly(self, PackedVector2Array([Vector2(71, -121), Vector2(79, -118), Vector2(70, -104)]), dark)
+	Art.line(self, Vector2(17, -88), Vector2(28, -85), dark, 3.5)
+	Art.line(self, Vector2(97, -88), Vector2(86, -85), dark, 3.5)
 	# ตาดุ
-	draw_circle(Vector2(46, -90), 7.0, Color.WHITE)
-	draw_circle(Vector2(72, -90), 7.0, Color.WHITE)
-	draw_circle(Vector2(48, -89), 3.5, Color(0.8, 0.1, 0.1) if _phase2() else Color.BLACK)
-	draw_circle(Vector2(74, -89), 3.5, Color(0.8, 0.1, 0.1) if _phase2() else Color.BLACK)
-	draw_line(Vector2(36, -102), Vector2(54, -95), dark, 4.0)
-	draw_line(Vector2(84, -102), Vector2(66, -95), dark, 4.0)
+	var pupil := Color(0.85, 0.12, 0.1) if _phase2() else Color(0.18, 0.1, 0.08)
+	for ex in [45.0, 71.0]:
+		Art.blob(self, Vector2(ex, -91), 7.0, 7.5, Color.WHITE, 2.0)
+		Art.ellipse(self, Vector2(ex + 2, -90), 3.2, 4.4, pupil)
+		Art.circle(self, Vector2(ex + 3, -92), 1.2, Color.WHITE)
+	Art.line(self, Vector2(34, -104), Vector2(53, -97), ink, 4.5)
+	Art.line(self, Vector2(84, -104), Vector2(65, -97), ink, 4.5)
 	# จมูก ปาก เขี้ยว
-	draw_colored_polygon(PackedVector2Array([Vector2(58, -76), Vector2(70, -76), Vector2(64, -68)]), Color(0.9, 0.4, 0.45))
-	draw_arc(Vector2(57, -66), 7.0, 0.1, PI - 0.1, 8, dark, 2.5)
-	draw_arc(Vector2(71, -66), 7.0, 0.1, PI - 0.1, 8, dark, 2.5)
-	draw_colored_polygon(PackedVector2Array([Vector2(52, -60), Vector2(58, -60), Vector2(55, -50)]), Color.WHITE)
-	draw_colored_polygon(PackedVector2Array([Vector2(70, -60), Vector2(76, -60), Vector2(73, -50)]), Color.WHITE)
+	Art.poly(self, PackedVector2Array([Vector2(56, -78), Vector2(70, -78), Vector2(63, -69)]), Color(0.95, 0.45, 0.5))
+	draw_arc(Vector2(56, -67), 7.0, 0.1, PI - 0.1, 10, ink, 2.6, true)
+	draw_arc(Vector2(70, -67), 7.0, 0.1, PI - 0.1, 10, ink, 2.6, true)
+	Art.poly(self, PackedVector2Array([Vector2(50, -61), Vector2(57, -61), Vector2(54, -50)]), Color.WHITE)
+	Art.poly(self, PackedVector2Array([Vector2(70, -61), Vector2(77, -61), Vector2(73, -50)]), Color.WHITE)
+	# หนวด
+	for s in [-1.0, 1.0]:
+		Art.line(self, Vector2(63 + s * 20, -70), Vector2(63 + s * 44, -74), Color(1, 1, 1, 0.8), 1.6)
+		Art.line(self, Vector2(63 + s * 20, -66), Vector2(63 + s * 44, -64), Color(1, 1, 1, 0.8), 1.6)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
