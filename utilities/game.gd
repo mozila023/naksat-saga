@@ -4,12 +4,31 @@ extends Node
 signal hp_changed
 signal form_changed
 signal quest_changed
+signal stats_changed  # เลเวล / EXP / เงิน / ไอเทม เปลี่ยน
 signal banner(text: String)
 signal dialogue_started(lines: Array)
 signal dialogue_finished
 
 const SAVE_PATH := "user://save.cfg"
 const FROGS_NEEDED := 5
+
+# ---------- ไอเทม ----------
+# buy = ราคาซื้อจากป้าศรี (0 = ไม่มีขาย), sell = ราคาที่ลุงหมูรับซื้อ (0 = ไม่รับซื้อ)
+const ITEMS := {
+	"potion": {"name": "ยาแดง", "desc": "ฟื้นเลือด 50 (กด F เพื่อดื่ม)", "icon": "potion", "buy": 20, "sell": 0},
+	"frog_leg": {"name": "ขากบ", "desc": "ได้จากกบนา ขายให้ลุงหมูได้", "icon": "frog_leg", "buy": 0, "sell": 6},
+	"mushroom_cap": {"name": "หมวกเห็ดพิษ", "desc": "ได้จากเห็ดพิษ ขายให้ลุงหมูได้", "icon": "mushroom_cap", "buy": 0, "sell": 12},
+	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "buy": 0, "sell": 0},
+}
+const POTION_HEAL := 50.0
+
+# ---------- รางวัลจากมอนสเตอร์ ----------
+# coins = [จำนวนเหรียญต่ำสุด, สูงสุด], coin_value = [มูลค่าต่อเหรียญต่ำสุด, สูงสุด], drops = [[ไอเทม, โอกาส 0..1], ...]
+const REWARDS := {
+	"frog": {"exp": 8, "coins": [1, 2], "coin_value": [2, 4], "drops": [["frog_leg", 0.4], ["potion", 0.06]]},
+	"mushroom": {"exp": 18, "coins": [1, 3], "coin_value": [3, 6], "drops": [["mushroom_cap", 0.4], ["potion", 0.1]]},
+	"tiger": {"exp": 250, "coins": [8, 8], "coin_value": [10, 14], "drops": [["tiger_fang", 1.0], ["potion", 1.0], ["potion", 1.0]]},
+}
 
 var main: Node
 var player: Player
@@ -25,9 +44,16 @@ var form_id := "normal"
 var quest_stage := 0
 var frog_kills := 0
 
+# เลเวล: ทุกเลเวล เลือดสูงสุด +15 และพลังโจมตี +10%
+var level := 1
+var exp := 0
+var money := 0
+var items := {"potion": 2}  # รหัสไอเทม -> จำนวน
+
 var in_dialogue := false
 var _dialogue_done := Callable()
 var _stopping := false
+var _dialogue_end_frame := -100
 
 
 func _ready() -> void:
@@ -36,7 +62,7 @@ func _ready() -> void:
 
 
 func _setup_input() -> void:
-	# ปุ่ม: ลูกศรเดิน, Space กระโดด, Shift วิ่งไว, C โจมตี, A S D สกิล, ↑ คุย/เข้าประตู, Q E สลับร่าง
+	# ปุ่ม: ลูกศรเดิน, Space กระโดด, Shift วิ่งไว, C โจมตี, A S D สกิล, ↑ คุย/เข้าประตู, Q E สลับร่าง, F ดื่มยา, B กระเป๋า
 	_add_action("move_left", [KEY_LEFT])
 	_add_action("move_right", [KEY_RIGHT])
 	_add_action("move_down", [KEY_DOWN])
@@ -49,6 +75,8 @@ func _setup_input() -> void:
 	_add_action("interact", [KEY_UP])
 	_add_action("form_prev", [KEY_Q])
 	_add_action("form_next", [KEY_E])
+	_add_action("use_potion", [KEY_F])
+	_add_action("bag", [KEY_B])
 
 
 func _add_action(action: String, keys: Array) -> void:
@@ -165,7 +193,108 @@ func set_quest_stage(stage: int) -> void:
 	save_game()
 
 
-func on_enemy_killed(kind: String) -> void:
+# ---------- เลเวล ----------
+
+func exp_needed() -> int:
+	return 40 + (level - 1) * 35
+
+
+func atk_mult() -> float:
+	return 1.0 + (level - 1) * 0.1
+
+
+func _apply_level() -> void:
+	max_hp = 100.0 + (level - 1) * 15.0
+
+
+func add_exp(amount: int) -> void:
+	exp += amount
+	var leveled := false
+	while exp >= exp_needed():
+		exp -= exp_needed()
+		level += 1
+		leveled = true
+	if leveled:
+		_apply_level()
+		set_hp(max_hp)
+		banner.emit("เลเวลอัป! Lv.%d\nเลือดสูงสุด %d  พลังโจมตี +%d%%" % [level, int(max_hp), int(round((atk_mult() - 1.0) * 100.0))])
+		if player and is_instance_valid(player):
+			player.on_level_up()
+	stats_changed.emit()
+	save_game()
+
+
+# ---------- เงินและไอเทม ----------
+
+func add_money(amount: int) -> void:
+	money = maxi(money + amount, 0)
+	stats_changed.emit()
+	save_game()
+
+
+func item_count(id: String) -> int:
+	return int(items.get(id, 0))
+
+
+func add_item(id: String, amount := 1) -> void:
+	items[id] = maxi(item_count(id) + amount, 0)
+	if items[id] == 0:
+		items.erase(id)
+	stats_changed.emit()
+	save_game()
+
+
+## ดื่มยาแดง คืนค่า true ถ้าดื่มได้
+func use_potion() -> bool:
+	if item_count("potion") <= 0 or hp >= max_hp or hp <= 0.0:
+		return false
+	add_item("potion", -1)
+	set_hp(hp + POTION_HEAL)
+	return true
+
+
+## ซื้อไอเทม 1 ชิ้น คืนค่า true ถ้าเงินพอ
+func buy_item(id: String) -> bool:
+	var price := int(ITEMS[id]["buy"])
+	if price <= 0 or money < price:
+		return false
+	money -= price
+	add_item(id, 1)
+	return true
+
+
+## ขายของดรอปทั้งหมดที่ขายได้ คืนค่าเงินที่ได้
+func sell_materials() -> int:
+	var total := 0
+	for id in items.keys():
+		var price := int(ITEMS[id]["sell"])
+		if price > 0:
+			total += price * item_count(id)
+			items.erase(id)
+	if total > 0:
+		add_money(total)
+	return total
+
+
+## ให้ EXP และโปรยของดรอปตรงจุดที่ศัตรูตาย
+func give_rewards(kind: String, pos: Vector2) -> void:
+	if not REWARDS.has(kind):
+		return
+	var r: Dictionary = REWARDS[kind]
+	add_exp(int(r["exp"]))
+	if main == null or main.stage == null:
+		return
+	spawn_number(pos + Vector2(-10, -70), "+%d EXP" % int(r["exp"]), Color(0.7, 0.9, 1.0), 20)
+	for i in randi_range(int(r["coins"][0]), int(r["coins"][1])):
+		Pickup.spawn(main.stage, pos, "coin", randi_range(int(r["coin_value"][0]), int(r["coin_value"][1])))
+	for d in r["drops"]:
+		if randf() < float(d[1]):
+			Pickup.spawn(main.stage, pos, d[0], 1)
+
+
+func on_enemy_killed(kind: String, pos := Vector2.INF) -> void:
+	if pos != Vector2.INF:
+		give_rewards(kind, pos)
 	if quest_stage == 1 and kind == "frog":
 		frog_kills += 1
 		if frog_kills >= FROGS_NEEDED:
@@ -176,8 +305,10 @@ func on_enemy_killed(kind: String) -> void:
 			save_game()
 
 
-func on_boss_defeated(id: String) -> void:
+func on_boss_defeated(id: String, pos := Vector2.INF) -> void:
 	boss = null
+	if pos != Vector2.INF:
+		give_rewards(id, pos)
 	if id == "tiger":
 		if unlock_form("tiger"):
 			banner.emit("ปราบพญาเสือโคร่งสำเร็จ!\nได้ร่างขาล (เสือ) — กด Q / E เพื่อสลับร่าง")
@@ -203,8 +334,14 @@ func start_dialogue(lines: Array, on_done := Callable()) -> void:
 	dialogue_started.emit(lines)
 
 
+## เพิ่งปิดบทสนทนาไปหมาด ๆ (กันปุ่มที่กดปิดไปสั่งคุยซ้ำหรือโจมตีทันที)
+func dialogue_just_ended() -> bool:
+	return Engine.get_physics_frames() - _dialogue_end_frame < 14
+
+
 func end_dialogue() -> void:
 	in_dialogue = false
+	_dialogue_end_frame = Engine.get_physics_frames()
 	var cb := _dialogue_done
 	_dialogue_done = Callable()
 	dialogue_finished.emit()
@@ -219,6 +356,10 @@ func save_game() -> void:
 	cfg.set_value("game", "unlocked", unlocked)
 	cfg.set_value("game", "quest_stage", quest_stage)
 	cfg.set_value("game", "frog_kills", frog_kills)
+	cfg.set_value("game", "level", level)
+	cfg.set_value("game", "exp", exp)
+	cfg.set_value("game", "money", money)
+	cfg.set_value("game", "items", items)
 	cfg.save(SAVE_PATH)
 
 
@@ -233,6 +374,16 @@ func load_game() -> void:
 			unlocked.append(id)
 	quest_stage = int(cfg.get_value("game", "quest_stage", 0))
 	frog_kills = int(cfg.get_value("game", "frog_kills", 0))
+	level = maxi(int(cfg.get_value("game", "level", 1)), 1)
+	exp = int(cfg.get_value("game", "exp", 0))
+	money = int(cfg.get_value("game", "money", 0))
+	items = {}
+	var saved_items: Dictionary = cfg.get_value("game", "items", {"potion": 2})
+	for id in saved_items:
+		if ITEMS.has(id):
+			items[id] = int(saved_items[id])
+	_apply_level()
+	hp = max_hp
 
 
 func reset_save() -> void:
@@ -240,6 +391,14 @@ func reset_save() -> void:
 	form_id = "normal"
 	quest_stage = 0
 	frog_kills = 0
+	level = 1
+	exp = 0
+	money = 0
+	items = {"potion": 2}
+	_apply_level()
+	hp = max_hp
 	save_game()
+	hp_changed.emit()
+	stats_changed.emit()
 	form_changed.emit()
 	quest_changed.emit()

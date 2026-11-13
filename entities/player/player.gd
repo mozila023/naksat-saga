@@ -116,7 +116,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var form := Game.current_form()
-	var locked := Game.in_dialogue
+	var locked := Game.in_dialogue or Game.dialogue_just_ended()
 	if not is_on_floor():
 		velocity.y = minf(velocity.y + GRAVITY * delta, 1400.0)
 
@@ -161,6 +161,8 @@ func _physics_process(delta: float) -> void:
 			cycle_form(-1)
 		if Input.is_action_just_pressed("interact"):
 			_interact()
+		if Input.is_action_just_pressed("use_potion"):
+			_drink_potion()
 
 	move_and_slide()
 	_process_dash_hits()
@@ -222,7 +224,7 @@ func _tick_timers(delta: float) -> void:
 # ---------- โจมตี ----------
 
 func _damage(mult: float) -> float:
-	return BASE_ATK * float(Game.current_form()["atk"]) * mult * randf_range(0.9, 1.1)
+	return BASE_ATK * Game.atk_mult() * float(Game.current_form()["atk"]) * mult * randf_range(0.9, 1.1)
 
 
 func _basic_attack() -> void:
@@ -317,6 +319,25 @@ func _process_dash_hits() -> void:
 	if _dash_t > 0.0 and _dash_dmg > 0.0:
 		var rect := get_hurt_rect().grow(18.0)
 		Game.hit_enemies(rect, _damage(_dash_dmg), global_position.x - facing * 10.0, 0.0, _dash_hit)
+
+
+func _drink_potion() -> void:
+	if Game.use_potion():
+		visual.flash(Color(0.6, 2.4, 0.8), 0.35)
+		Fx.spawn(get_parent(), global_position, "pillar", Vector2(40, 200), Color(0.4, 1.0, 0.5), 1, 0.45)
+		Fx.spawn(get_parent(), global_position + Vector2(0, -30), "star", Vector2(40, 120), Color(0.6, 1.0, 0.6), 1, 0.7)
+		Game.spawn_number(global_position + Vector2(-20, -100), "+%d" % int(Game.POTION_HEAL), Color(0.5, 1.0, 0.6), 30)
+	elif Game.item_count("potion") <= 0:
+		Game.banner.emit("ยาแดงหมดแล้ว — ซื้อได้ที่ป้าศรีในหมู่บ้าน")
+
+
+func on_level_up() -> void:
+	visual.flash(Color(3, 3, 2), 0.5)
+	Fx.spawn(get_parent(), global_position, "pillar", Vector2(70, 320), Color(1.0, 0.9, 0.4), 1, 0.7)
+	Fx.spawn(get_parent(), global_position + Vector2(0, -44), "ring", Vector2(150, 150), Color(1.0, 0.9, 0.4), 1, 0.5)
+	Fx.spawn(get_parent(), global_position + Vector2(0, -30), "star", Vector2(80, 200), Color(1.0, 0.95, 0.5), 1, 1.0)
+	Game.spawn_text(global_position + Vector2(-90, -150), "LEVEL UP!", Color(1.0, 0.9, 0.35), 40)
+	Game.shake(5.0, 0.3)
 
 
 func get_cd(index: int) -> float:

@@ -95,14 +95,27 @@ func _talk_chief() -> void:
 
 
 func _talk_auntie() -> void:
-	Game.start_dialogue([
-		{"who": "ป้าศรี", "text": "ไหว้พระเถอะลูก จะออกไปทุ่งนาเหรอ ป้าสอนให้ก่อน"},
-		{"who": "ป้าศรี", "text": "กด C เพื่อโจมตี กด A S D เพื่อใช้สกิล กด Space เพื่อกระโดด กด Shift ค้าง เพื่อวิ่งไว และกด ↓ พร้อม Space เพื่อลงจากแท่น"},
-		{"who": "ป้าศรี", "text": "ถ้าเจ็บตัว ยืนพักสักครู่ เลือดจะค่อย ๆ ฟื้นเอง"},
-	])
+	# ร้านยาป้าศรี: คุย 1 ครั้ง = ซื้อยาแดง 1 ขวด
+	var price := int(Game.ITEMS["potion"]["buy"])
+	if Game.buy_item("potion"):
+		Game.start_dialogue([
+			{"who": "ป้าศรี", "text": "ยาแดงขวดละ %d บาทจ้ะ นี่จ้ะ 1 ขวด (ตอนนี้มี %d ขวด เหลือเงิน %d บาท) กด F เพื่อดื่ม ตอนเลือดเหลือน้อยนะลูก" % [price, Game.item_count("potion"), Game.money]},
+		])
+	else:
+		Game.start_dialogue([
+			{"who": "ป้าศรี", "text": "ป้าขายยาแดง ขวดละ %d บาทจ้ะ แต่หนูมีแค่ %d บาท ไปตีมอนสเตอร์ ที่ทุ่งนา เก็บเหรียญมาก่อนนะ" % [price, Game.money]},
+			{"who": "ป้าศรี", "text": "ของที่มอนสเตอร์ทำตก เอาไปขาย ให้ลุงหมูได้ กด B เพื่อเปิดกระเป๋าดูของ"},
+		])
 
 
 func _talk_uncle() -> void:
-	Game.start_dialogue([
-		{"who": "ลุงหมู", "text": "หมูน้อยของลุง ตัวละ 60 บาท... แต่ตอนนี้ยังไม่เปิดขายนะหลาน รอร้านเปิดก่อน"},
-	])
+	# ลุงหมูรับซื้อของดรอปทั้งหมด
+	var earned := Game.sell_materials()
+	if earned > 0:
+		Game.start_dialogue([
+			{"who": "ลุงหมู", "text": "ของดี ๆ ทั้งนั้นเลยหลาน ลุงรับซื้อหมด ได้ไป %d บาท (ตอนนี้มี %d บาท)" % [earned, Game.money]},
+		])
+	else:
+		Game.start_dialogue([
+			{"who": "ลุงหมู", "text": "ลุงรับซื้อ ขากบ ชิ้นละ %d บาท กับ หมวกเห็ดพิษ ชิ้นละ %d บาท ไปหามาจากทุ่งนา แล้วเอามาขายลุงได้เลย" % [int(Game.ITEMS["frog_leg"]["sell"]), int(Game.ITEMS["mushroom_cap"]["sell"])]},
+		])

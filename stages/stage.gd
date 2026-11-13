@@ -21,6 +21,7 @@ var _platforms: Array = []
 var _props: Array = []
 var _spawners: Array = []
 var _t := 0.0
+var _layered := false
 
 
 func _ready() -> void:
@@ -47,9 +48,23 @@ func _make_art_background() -> void:
 	var s: float = GROUND_Y / info["feet"]
 	var bg: Texture2D = load("res://assets/art/bg_%s.png" % style)
 	var ground: Texture2D = load("res://assets/art/ground_%s.png" % style)
-	# วิวด้านหลัง เลื่อนช้ากว่าตัวละคร (ดูมีมิติ) ส่วนพื้นเลื่อนเท่าตัวละคร
-	_add_art_layer(bg, s, 0.0, 0.5, -10)
-	_add_art_layer(ground, s, info["split"] * s - 1.0, 1.0, -9)
+	var road_top: float = info["split"] * s
+	var mid_path := "res://assets/art/layer_%s_mid.png" % style
+	var near_path := "res://assets/art/layer_%s_near.png" % style
+	if ResourceLoader.exists(mid_path) and ResourceLoader.exists(near_path):
+		# ฉากหลังแยกชั้น ให้มีมิติ: ยิ่งอยู่ไกลยิ่งเลื่อนช้า
+		#   ภูเขา+ท้องฟ้า (หลังสุด) -> บ้าน/ทุ่งนา -> ต้นไม้/รั้ว -> ถนน (หน้าสุด เลื่อนเท่าตัวละคร)
+		var far: Texture2D = load("res://assets/art/layer_far.png")
+		var mid: Texture2D = load(mid_path)
+		var near: Texture2D = load(near_path)
+		_layered = true
+		_add_art_layer(far, 0.92, 400.0 - far.get_height() * 0.92, 0.1, -13)
+		_add_art_layer(mid, s, road_top + 2.0 - mid.get_height() * s, 0.32, -12)
+		_add_art_layer(near, s, road_top + 6.0 - near.get_height() * s, 0.68, -11)
+	else:
+		# ภาพเดียวทั้งฉาก (เช่น ในถ้ำ): วิวเลื่อนช้ากว่าตัวละคร ส่วนพื้นเลื่อนเท่าตัวละคร
+		_add_art_layer(bg, s, 0.0, 0.5, -10)
+	_add_art_layer(ground, s, road_top - 1.0, 1.0, -9)
 
 
 func _add_art_layer(tex: Texture2D, s: float, y: float, scroll: float, z: int) -> void:
@@ -185,8 +200,9 @@ func _make_sky() -> void:
 			grad.set_color(0, Color(0.3, 0.68, 0.98))
 			grad.set_color(1, Color(0.8, 0.95, 1.0))
 	if art_sky:
-		grad.set_color(0, ART[style]["sky"])
-		grad.set_color(1, ART[style]["sky"])
+		var sky: Color = Color(0.359, 0.763, 0.971) if _layered else ART[style]["sky"]
+		grad.set_color(0, sky)
+		grad.set_color(1, sky)
 	var tex := GradientTexture2D.new()
 	tex.gradient = grad
 	tex.fill_from = Vector2(0, 0)

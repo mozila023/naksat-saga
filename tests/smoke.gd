@@ -113,6 +113,31 @@ func _ready() -> void:
 	main.hud._dialogue.visible = false
 	await kill_all(2)
 	check(Game.quest_stage == 2, "frog quest complete (stage %d, kills %d)" % [Game.quest_stage, Game.frog_kills])
+	check(Game.level > 1, "kills give EXP and level up (Lv.%d)" % Game.level)
+	check(Game.max_hp > 100.0, "level raises max HP")
+	var drops := get_tree().get_nodes_in_group("pickups")
+	check(drops.size() > 0, "monsters drop pickups")
+	var money_before := Game.money
+	var guard := 0
+	while Game.money == money_before and guard < 12:
+		drops = get_tree().get_nodes_in_group("pickups").filter(func(d: Node) -> bool: return d.kind == "coin")
+		if drops.is_empty():
+			break
+		p.global_position = drops[0].global_position
+		p.velocity = Vector2.ZERO
+		await frames(30)
+		guard += 1
+	check(Game.money > money_before, "coins can be picked up (%d baht)" % Game.money)
+	Game.set_hp(10.0)
+	var potions := Game.item_count("potion")
+	await tap("use_potion")
+	check(Game.hp > 10.0 and Game.item_count("potion") == potions - 1, "potion heals")
+	await tap("bag")
+	check(main.hud._bag.visible, "bag opens")
+	await shot("04b_bag")
+	await tap("bag")
+	Game.add_item("frog_leg", 3)
+	Game.money = 100
 	await frames(400)
 	check(get_tree().get_nodes_in_group("enemies").size() >= 10, "monsters respawn")
 
@@ -122,6 +147,16 @@ func _ready() -> void:
 	await frames(20)
 	await talk_through()
 	check(Game.quest_stage == 3, "boss quest accepted (got %d)" % Game.quest_stage)
+	p.global_position.x = 4360.0
+	await frames(20)
+	var before_sale := Game.money
+	await talk_through()
+	check(Game.money > before_sale and Game.item_count("frog_leg") == 0, "uncle buys materials")
+	p.global_position.x = 1150.0
+	await frames(20)
+	var potions_before := Game.item_count("potion")
+	await talk_through()
+	check(Game.item_count("potion") == potions_before + 1, "auntie sells a potion")
 
 	main.change_stage("rice_field", "from_cave")
 	await frames(60)
@@ -157,6 +192,7 @@ func _ready() -> void:
 		await frames(40)
 	await shot("10_tiger_form")
 
+	check(Game.item_count("tiger_fang") >= 1 or get_tree().get_nodes_in_group("pickups").size() > 0, "boss drops loot")
 	Game.max_hp = 100.0
 	Game.set_hp(1.0)
 	p._invuln = 0.0

@@ -238,7 +238,7 @@ func take_hit(dmg: float, _dir: float, _stun: float) -> void:
 		Fx.spawn(get_parent(), global_position, "pillar", Vector2(100, 400), Color(1.0, 0.9, 0.5), 1, 0.9)
 		Game.shake(14.0, 0.6)
 		Game.hit_stop(0.25)
-		Game.on_boss_defeated("tiger")
+		Game.on_boss_defeated("tiger", global_position)
 
 
 func _draw() -> void:

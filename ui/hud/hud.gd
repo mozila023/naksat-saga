@@ -10,6 +10,13 @@ var _form_icon: TextureRect
 var _form_label: Label
 var _hp_bar: ProgressBar
 var _hp_label: Label
+var _level_label: Label
+var _exp_bar: ProgressBar
+var _money_label: Label
+var _potion_label: Label
+var _bag: Panel
+var _bag_list: VBoxContainer
+var _bag_stats: Label
 var _quest_label: Label
 var _forms_label: Label
 var _banner: Label
@@ -42,6 +49,9 @@ func _ready() -> void:
 	if DisplayServer.is_touchscreen_available():
 		_build_touch()
 
+	_build_bag()
+	Game.stats_changed.connect(_refresh_stats)
+	_refresh_stats()
 	Game.hp_changed.connect(_refresh_hp)
 	Game.form_changed.connect(_refresh_form)
 	Game.quest_changed.connect(_refresh_quest)
@@ -90,7 +100,7 @@ func _build_status() -> void:
 	var panel := Panel.new()
 	panel.add_theme_stylebox_override("panel", _box(Color(1.0, 0.96, 0.85, 0.92)))
 	panel.position = Vector2(16, 16)
-	panel.size = Vector2(350, 92)
+	panel.size = Vector2(350, 104)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(panel)
 
@@ -123,9 +133,115 @@ func _build_status() -> void:
 	_hp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	panel.add_child(_hp_label)
 
+	# เลเวล + หลอด EXP
+	_level_label = _label("Lv.1", 22, Color(0.85, 0.4, 0.15), 0)
+	_level_label.position = Vector2(236, 6)
+	_level_label.size = Vector2(100, 30)
+	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	panel.add_child(_level_label)
+	_exp_bar = _bar(Color(1.0, 0.8, 0.25))
+	_exp_bar.position = Vector2(92, 80)
+	_exp_bar.size = Vector2(244, 14)
+	panel.add_child(_exp_bar)
+
+	# เงิน + ยาแดง
+	var row := HBoxContainer.new()
+	row.position = Vector2(20, 126)
+	row.add_theme_constant_override("separation", 6)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(row)
+	row.add_child(_icon("coin", 30))
+	_money_label = _label("0", 22, Color(1.0, 0.9, 0.4), 7)
+	row.add_child(_money_label)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(14, 0)
+	row.add_child(gap)
+	row.add_child(_icon("potion", 30))
+	_potion_label = _label("x0", 22, Color(1.0, 0.75, 0.75), 7)
+	row.add_child(_potion_label)
+
 	_quest_label = _label("", 24, Color(1.0, 0.92, 0.55), 8)
-	_quest_label.position = Vector2(20, 116)
+	_quest_label.position = Vector2(20, 162)
 	_root.add_child(_quest_label)
+
+
+func _icon(item: String, px: int) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = load("res://assets/art/items/item_%s.png" % item)
+	t.custom_minimum_size = Vector2(px, px)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
+
+
+func _refresh_stats() -> void:
+	_level_label.text = "Lv.%d" % Game.level
+	_exp_bar.max_value = Game.exp_needed()
+	_exp_bar.value = Game.exp
+	_money_label.text = "%d บาท" % Game.money
+	_potion_label.text = "x%d  [F]" % Game.item_count("potion")
+	if _bag.visible:
+		_fill_bag()
+
+
+# ---------- กระเป๋า (กด B) ----------
+
+func _build_bag() -> void:
+	_bag = Panel.new()
+	_bag.add_theme_stylebox_override("panel", _box(Color(1.0, 0.97, 0.88, 0.98), 18))
+	_bag.set_anchors_preset(Control.PRESET_CENTER)
+	_bag.position = Vector2(-300, -230)
+	_bag.size = Vector2(600, 440)
+	_bag.visible = false
+	_root.add_child(_bag)
+	var title := _label("กระเป๋า", 30, Color(0.85, 0.4, 0.15), 0)
+	title.position = Vector2(28, 14)
+	_bag.add_child(title)
+	var hint := _label("กด B เพื่อปิด", 16, Color(0.5, 0.4, 0.3), 0)
+	hint.position = Vector2(380, 26)
+	hint.size = Vector2(192, 24)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_bag.add_child(hint)
+	_bag_stats = _label("", 19, Color(0.3, 0.18, 0.08), 0)
+	_bag_stats.position = Vector2(28, 62)
+	_bag.add_child(_bag_stats)
+	_bag_list = VBoxContainer.new()
+	_bag_list.position = Vector2(28, 132)
+	_bag_list.size = Vector2(544, 290)
+	_bag_list.add_theme_constant_override("separation", 10)
+	_bag.add_child(_bag_list)
+
+
+func toggle_bag() -> void:
+	_bag.visible = not _bag.visible
+	if _bag.visible:
+		_fill_bag()
+
+
+func _fill_bag() -> void:
+	_bag_stats.text = "เลเวล %d    EXP %d / %d    เลือดสูงสุด %d\nพลังโจมตี +%d%%    เงิน %d บาท" % [Game.level, Game.exp, Game.exp_needed(), int(Game.max_hp), int(round((Game.atk_mult() - 1.0) * 100.0)), Game.money]
+	for child in _bag_list.get_children():
+		child.queue_free()
+	var any := false
+	for id in Game.ITEMS:
+		var count := Game.item_count(id)
+		if count <= 0:
+			continue
+		any = true
+		var info: Dictionary = Game.ITEMS[id]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		row.add_child(_icon(info["icon"], 44))
+		var text := "%s  x%d\n%s" % [info["name"], count, info["desc"]]
+		if int(info["sell"]) > 0:
+			text += "  (ขายได้ชิ้นละ %d บาท)" % int(info["sell"])
+		var l := _label(text, 18, Color(0.3, 0.18, 0.08), 0)
+		l.add_theme_constant_override("line_spacing", -4)
+		row.add_child(l)
+		_bag_list.add_child(row)
+	if not any:
+		_bag_list.add_child(_label("ยังไม่มีของ — ตีมอนสเตอร์แล้วเก็บของที่ตก", 19, Color(0.5, 0.4, 0.3), 0))
 
 
 func _refresh_hp() -> void:
@@ -323,7 +439,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _build_help() -> void:
 	if DisplayServer.is_touchscreen_available():
 		return
-	var help := _label("← → เดิน   Shift วิ่งไว   Space กระโดด\nC โจมตี   A S D สกิล   Q/E สลับร่าง\n↑ คุย/เข้าประตู   ↓+Space ลงแท่น   F9 เริ่มใหม่", 15, Color(1, 1, 1, 0.92), 5)
+	var help := _label("← → เดิน   Shift วิ่งไว   Space กระโดด   ↓+Space ลงแท่น\nC โจมตี   A S D สกิล   Q/E สลับร่าง   F ดื่มยา\n↑ คุย/เข้าประตู   B กระเป๋า   F9 เริ่มใหม่", 15, Color(1, 1, 1, 0.92), 5)
 	help.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	help.position = Vector2(16, -84)
 	help.add_theme_constant_override("line_spacing", -4)
@@ -334,6 +450,8 @@ func _build_help() -> void:
 
 func _process(delta: float) -> void:
 	_dlg_delay = maxf(_dlg_delay - delta, 0.0)
+	if Input.is_action_just_pressed("bag") and not Game.in_dialogue:
+		toggle_bag()
 	if Game.in_dialogue and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("attack") or Input.is_action_just_pressed("jump")):
 		_advance_dialogue()
 
@@ -379,6 +497,8 @@ func _build_touch() -> void:
 	_touch_button(right, Vector2(-160, -320), 44, "3", "skill_3")
 	_touch_button(right, Vector2(-110, -440), 40, "ร่าง", "form_next")
 	_touch_button(right, Vector2(-230, -420), 40, "คุย", "interact")
+	_touch_button(right, Vector2(-350, -390), 40, "ยา", "use_potion")
+	_touch_button(right, Vector2(-110, -560), 40, "ของ", "bag")
 
 
 func _touch_button(parent: Control, pos: Vector2, radius: int, text: String, action: String) -> void:
