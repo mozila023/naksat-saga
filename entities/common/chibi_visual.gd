@@ -1,5 +1,9 @@
 class_name ChibiVisual extends Node2D
-## ภาพตัวละคร: ถ้า outfit มี "sprite" (ที่อยู่ไฟล์ภาพ) จะใช้ภาพจริง แล้วขยับด้วยโค้ด (โยกตัว เด้ง พุ่งตอนตี)
+## ภาพตัวละคร มี 3 แบบ เลือกตามข้อมูลใน outfit (เรียงตามลำดับที่ใช้ก่อน):
+##   1) "frames" = ภาพวาดทีละท่า (ยืน เดิน 4 ภาพ ตี 3 ภาพ กระโดด ตก ลงพื้น) — เป็นธรรมชาติที่สุด
+##   2) "rig"    = ตัดภาพนิ่งเป็นชิ้นแล้วหมุนแขนขา (สำรอง)
+##   3) "sprite" = ภาพนิ่งภาพเดียว โยกตัวเบา ๆ (ใช้กับชาวบ้าน)
+## รายละเอียดเดิม: ถ้า outfit มี "sprite" (ที่อยู่ไฟล์ภาพ) จะใช้ภาพจริง แล้วขยับด้วยโค้ด (โยกตัว เด้ง พุ่งตอนตี)
 ## ถ้าไม่มี จะวาดตัวชิบิด้วยโค้ดแทน (ภาพสำรอง)
 ## ทุกร่างใช้ขนาดเท่ากัน เปลี่ยนแค่ชุด (outfit)
 
@@ -12,6 +16,15 @@ var vy := 0.0      # ความเร็วแนวตั้ง (ไว้เ
 var hurt := 0.0    # เวลาที่เหลือของท่าโดนตี
 var cast := 0.0    # เวลาที่เหลือของท่าชูแขนร่ายสกิล
 var _rig: ChibiRig
+var _frames := {}        # ชื่อท่า -> [ภาพ]
+var _fsprite: Sprite2D
+var _frames_key := ""
+var _walk_t := 0.0
+var _land_t := 0.0
+var _was_air := false
+var _flash := 0.0
+var _flash_time := 0.2
+var _flash_color := Color.WHITE
 var _t := 0.0
 var _blink_offset := randf() * 3.0
 var _sprite: Sprite2D
@@ -22,6 +35,10 @@ func _process(delta: float) -> void:
 	_t += delta
 	hurt = maxf(hurt - delta, 0.0)
 	cast = maxf(cast - delta, 0.0)
+	_update_frames(delta)
+	if _fsprite:
+		queue_redraw()
+		return
 	_update_sprite()
 	if _rig:
 		_rig.moving = moving
@@ -37,8 +54,97 @@ func _process(delta: float) -> void:
 
 ## กะพริบสีทั้งตัว (ขาว = เปลี่ยนร่าง, แดง = โดนตี)
 func flash(color: Color, time := 0.2) -> void:
+	_flash_color = color
+	_flash_time = time
+	_flash = time
 	if _rig:
 		_rig.flash(color, time)
+
+
+## ภาพของท่าปัจจุบัน (ใช้ทำเงาตามตัวตอนพุ่ง)
+func current_texture() -> Texture2D:
+	return _fsprite.texture if _fsprite else null
+
+
+func _load_frames(prefix: String) -> void:
+	_frames.clear()
+	for anim in [["idle", 1], ["walk", 4], ["attack", 3], ["jump", 1], ["fall", 1], ["land", 1]]:
+		var list: Array = []
+		for i in int(anim[1]):
+			var path := "%s%s_%d.png" % [prefix, anim[0], i]
+			if ResourceLoader.exists(path):
+				list.append(load(path))
+		if list.is_empty():
+			_frames.clear()
+			return
+		_frames[anim[0]] = list
+
+
+func _update_frames(delta: float) -> void:
+	var prefix: String = outfit.get("frames", "")
+	if prefix != _frames_key:
+		_frames_key = prefix
+		if prefix != "":
+			_load_frames(prefix)
+		else:
+			_frames.clear()
+		if _frames.is_empty():
+			if _fsprite:
+				_fsprite.queue_free()
+				_fsprite = null
+		else:
+			for old in [_sprite, _rig]:
+				if old:
+					old.queue_free()
+			_sprite = null
+			_rig = null
+			_sprite_path = ""
+			if _fsprite == null:
+				_fsprite = Sprite2D.new()
+				_fsprite.centered = false
+				_fsprite.scale = Vector2(0.5, 0.5)  # ไฟล์ภาพละเอียด 2 เท่าของขนาดที่แสดง
+				add_child(_fsprite)
+	if _fsprite == null:
+		return
+
+	# เลือกท่าตามสถานะ
+	if _was_air and not in_air:
+		_land_t = 0.1
+	_was_air = in_air
+	_land_t = maxf(_land_t - delta, 0.0)
+	var tex: Texture2D = _frames["idle"][0]
+	var rot := 0.0
+	var pos := Vector2(0, 3)
+	var sy := 1.0
+	if hurt > 0.0:
+		tex = _frames["fall"][0]
+		rot = -0.22
+	elif swing >= 0.0:
+		tex = _frames["attack"][0 if swing < 0.22 else (1 if swing < 0.62 else 2)]
+	elif cast > 0.0:
+		tex = _frames["attack"][0]
+	elif in_air:
+		tex = _frames["jump"][0] if vy < 0.0 else _frames["fall"][0]
+	elif _land_t > 0.0:
+		tex = _frames["land"][0]
+	elif moving:
+		_walk_t += delta * (13.0 if running else 8.5)
+		tex = _frames["walk"][int(_walk_t) % 4]
+		pos.y -= absf(sin(_walk_t * PI)) * 2.0
+		rot = 0.07 if running else 0.0
+	else:
+		_walk_t = 0.0
+		sy = 1.0 + sin(_t * 3.0) * 0.015
+	_fsprite.texture = tex
+	_fsprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
+	_fsprite.position = pos
+	_fsprite.rotation = rot
+	_fsprite.scale = Vector2(0.5, 0.5 * sy)
+	if _flash > 0.0:
+		_flash -= delta
+		_fsprite.modulate = Color.WHITE.lerp(_flash_color, clampf(_flash / _flash_time, 0.0, 1.0))
+	else:
+		_fsprite.modulate = Color.WHITE
 
 
 func _update_sprite() -> void:
@@ -88,7 +194,7 @@ func _update_sprite() -> void:
 
 
 func _draw() -> void:
-	if _sprite or _rig:
+	if _sprite or _rig or _fsprite:
 		if not in_air:
 			Art.shadow(self, Vector2(0, 2), 26.0)
 		return

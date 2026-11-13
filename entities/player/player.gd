@@ -8,7 +8,7 @@ const JUMP_VELOCITY := -660.0
 const GRAVITY := 1800.0
 const BASE_ATK := 10.0
 const ATTACK_COOLDOWN := 0.36
-const SWING_TIME := 0.22
+const SWING_TIME := 0.3
 
 var facing := 1
 var dead := false
@@ -172,7 +172,8 @@ func _physics_process(delta: float) -> void:
 		if _ghost_t <= 0.0:
 			_ghost_t = 0.035
 			var tint: Color = form["outfit"]["shirt"].lerp(Color(0.6, 0.9, 1.0), 0.5)
-			Fx.ghost(get_parent(), global_position, _texture(), tint, facing)
+			var shot := visual.current_texture()
+			Fx.ghost(get_parent(), global_position, shot if shot else _texture(), tint, facing)
 	elif _was_dashing and _dash_dmg > 0.0:
 		Fx.spawn(get_parent(), global_position + Vector2(0, -10), "ring", Vector2(90, 90), Color(1.0, 0.7, 0.3), facing, 0.3)
 		Fx.spawn(get_parent(), global_position + Vector2(0, -4), "puff", Vector2(34, 8), Color(1, 1, 1, 0.6), facing, 0.35)
