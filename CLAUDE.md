@@ -2,7 +2,8 @@
 
 Godot 4.7.2 GDScript game (web export, no threads). The owner does not code: explain in plain Thai, keep code comments in Thai.
 
-- Scenes are built in code; `main.tscn` only attaches `main.gd`. Art is placeholder `_draw()` code until real sprites arrive.
+- Scenes are built in code; `main.tscn` only attaches `main.gd`.
+- Art: Gemini pixel-art PNGs in `assets/art/` (single still frame per character, animated in code by `ChibiVisual`/enemy scripts; sprite files are 2x display size). New source images on green/magenta backgrounds go through `python3 tools/prep_art.py <src_dir> assets/art` (keys out the background, builds mirrored tiling backgrounds). Vector `_draw()` art remains as fallback and for platforms, signs and effects.
 - Add a hero form = one entry in `utilities/forms.gd` (same body size for all forms, outfit only). Skill kinds: melee / dash / aoe.
 - Add a map = new script extending `Stage` in `stages/`, registered in `main.gd` STAGES.
 - Combat uses rect checks via `Game.hit_enemies()`; enemies are in group `enemies` with `is_alive()`, `get_hurt_rect()`, `take_hit()`.

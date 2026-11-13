@@ -6,6 +6,7 @@ const SLOT_KEYS := ["C", "A", "S", "D"]
 
 var _root: Control
 var _form_swatch: Panel
+var _form_icon: TextureRect
 var _form_label: Label
 var _hp_bar: ProgressBar
 var _hp_label: Label
@@ -98,6 +99,13 @@ func _build_status() -> void:
 	_form_swatch.size = Vector2(68, 68)
 	_form_swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(_form_swatch)
+	_form_icon = TextureRect.new()
+	_form_icon.position = Vector2(6, 4)
+	_form_icon.size = Vector2(56, 60)
+	_form_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_form_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_form_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_form_swatch.add_child(_form_icon)
 
 	_form_label = _label("", 22, Color(0.3, 0.18, 0.08), 0)
 	_form_label.position = Vector2(92, 6)
@@ -128,7 +136,18 @@ func _refresh_hp() -> void:
 
 func _refresh_form() -> void:
 	var form := Game.current_form()
-	_form_swatch.add_theme_stylebox_override("panel", _box(form["outfit"]["shirt"], 34))
+	var sprite_path: String = form["outfit"].get("sprite", "")
+	if sprite_path != "" and ResourceLoader.exists(sprite_path):
+		# ใช้ครึ่งบนของภาพตัวละครเป็นไอคอนร่าง
+		var tex: Texture2D = load(sprite_path)
+		var icon := AtlasTexture.new()
+		icon.atlas = tex
+		icon.region = Rect2(0, 0, tex.get_width(), tex.get_height() * 0.56)
+		_form_icon.texture = icon
+		_form_swatch.add_theme_stylebox_override("panel", _box(Color(0.75, 0.9, 1.0), 16))
+	else:
+		_form_icon.texture = null
+		_form_swatch.add_theme_stylebox_override("panel", _box(form["outfit"]["shirt"], 34))
 	_form_label.text = form["name"]
 	for i in 3:
 		_slots[i + 1]["name"].text = form["skills"][i]["name"]

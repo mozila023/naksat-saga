@@ -52,9 +52,9 @@ func build() -> void:
 	add_platform(5180.0, 450.0, 220.0)
 
 	# ---- ชาวบ้าน ----
-	add_npc(2050.0, CHIEF, {"shirt": Color(0.3, 0.45, 0.75), "pants": Color(0.2, 0.2, 0.25), "accent": Color(0.9, 0.75, 0.3), "hair": Color(0.75, 0.75, 0.75), "hat": "straw"}, _talk_chief, func() -> bool: return Game.quest_stage in [0, 2, 4])
-	add_npc(1150.0, "ป้าศรี", {"shirt": Color(0.95, 0.6, 0.7), "pants": Color(0.5, 0.25, 0.4), "accent": Color(1, 1, 1), "hair": Color(0.25, 0.18, 0.15), "hat": "bun"}, _talk_auntie)
-	add_npc(4360.0, "ลุงหมู", {"shirt": Color(0.6, 0.8, 0.5), "pants": Color(0.35, 0.3, 0.2), "accent": Color(0.4, 0.3, 0.2), "hair": Color(0.2, 0.2, 0.2), "hat": "straw"}, _talk_uncle)
+	add_npc(2050.0, CHIEF, {"shirt": Color(0.3, 0.45, 0.75), "pants": Color(0.2, 0.2, 0.25), "accent": Color(0.9, 0.75, 0.3), "hair": Color(0.75, 0.75, 0.75), "hat": "straw", "sprite": "res://assets/art/npc_chief.png"}, _talk_chief, func() -> bool: return Game.quest_stage in [0, 2, 4])
+	add_npc(1150.0, "ป้าศรี", {"shirt": Color(0.95, 0.6, 0.7), "pants": Color(0.5, 0.25, 0.4), "accent": Color(1, 1, 1), "hair": Color(0.25, 0.18, 0.15), "hat": "bun", "sprite": "res://assets/art/npc_auntie.png"}, _talk_auntie)
+	add_npc(4360.0, "ลุงหมู", {"shirt": Color(0.6, 0.8, 0.5), "pants": Color(0.35, 0.3, 0.2), "accent": Color(0.4, 0.3, 0.2), "hair": Color(0.2, 0.2, 0.2), "hat": "straw", "sprite": "res://assets/art/npc_uncle.png"}, _talk_uncle)
 
 	# ---- ประตู ----
 	add_portal(6240.0, "ไปทุ่งนา", "rice_field", "from_village", Callable(), Color(0.6, 1.0, 0.5))

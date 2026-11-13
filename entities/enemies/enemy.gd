@@ -3,8 +3,8 @@ class_name Enemy extends CharacterBody2D
 
 const GRAVITY := 1800.0
 const KINDS := {
-	"frog": {"name": "กบนา", "hp": 32.0, "dmg": 8.0, "speed": 75.0, "size": Vector2(46, 34)},
-	"mushroom": {"name": "เห็ดพิษ", "hp": 75.0, "dmg": 13.0, "speed": 55.0, "size": Vector2(46, 54)},
+	"frog": {"name": "กบนา", "hp": 32.0, "dmg": 8.0, "speed": 75.0, "size": Vector2(58, 48), "sprite": "res://assets/art/frog.png"},
+	"mushroom": {"name": "เห็ดพิษ", "hp": 75.0, "dmg": 13.0, "speed": 55.0, "size": Vector2(56, 72), "sprite": "res://assets/art/mushroom.png"},
 }
 
 var kind := "frog"
@@ -21,6 +21,7 @@ var _flash := 0.0
 var _dying := false
 var _hop_t := 0.0
 var _t := 0.0
+var _sprite: Sprite2D
 
 
 func _init() -> void:
@@ -43,6 +44,13 @@ func _ready() -> void:
 	shape.shape = rect
 	shape.position = Vector2(0, -rect.size.y * 0.5)
 	add_child(shape)
+	var tex: Texture2D = load(_stats["sprite"])
+	_sprite = Sprite2D.new()
+	_sprite.texture = tex
+	_sprite.centered = false
+	_sprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
+	_sprite.position = Vector2(0, 3)
+	add_child(_sprite)
 
 
 func is_alive() -> bool:
@@ -124,62 +132,17 @@ func take_hit(dmg: float, dir: float, stun: float) -> void:
 
 func _draw() -> void:
 	modulate = Color(2.2, 2.2, 2.2, modulate.a) if _flash > 0.0 else Color(1, 1, 1, modulate.a)
-	var ink := Art.INK
-	# ยืดหดตามจังหวะกระโดด ให้ดูนุ่ม
+	# ยืดหดตามจังหวะกระโดด ให้ดูนุ่ม (ภาพต้นฉบับหันซ้าย)
 	var stretch := clampf(-velocity.y / 900.0, -0.18, 0.22)
 	var breathe := sin(_t * 5.0) * 0.03
-	Art.shadow(self, Vector2(0, 1), 24.0)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(facing * (1.0 - stretch * 0.6), 1.0 + stretch + breathe))
-	if kind == "frog":
-		var green := Color(0.5, 0.82, 0.36)
-		# ขาหลัง
-		Art.blob(self, Vector2(-17, -6), 9.0, 6.0, green.darkened(0.12), 2.5)
-		Art.blob(self, Vector2(15, -5), 8.0, 5.5, green.darkened(0.12), 2.5)
-		# ตัว
-		Art.blob(self, Vector2(0, -17), 22.0, 17.0, green)
-		Art.ellipse(self, Vector2(3, -11), 15.0, 10.0, Color(0.9, 0.97, 0.66))
-		Art.ellipse(self, Vector2(-8, -26), 7.0, 4.0, Color(1, 1, 1, 0.25))
-		# ตาโต
-		for sx in [-9.0, 11.0]:
-			Art.blob(self, Vector2(sx, -34), 8.0, 8.0, Color.WHITE, 2.5)
-			Art.circle(self, Vector2(sx + 2.5, -33.5), 4.0, Color(0.15, 0.1, 0.1))
-			Art.circle(self, Vector2(sx + 3.6, -35.2), 1.4, Color.WHITE)
-		# แก้ม + ปาก
-		Art.ellipse(self, Vector2(-9, -15), 4.0, 2.6, Color(1.0, 0.5, 0.55, 0.55))
-		Art.ellipse(self, Vector2(18, -15), 3.2, 2.4, Color(1.0, 0.5, 0.55, 0.55))
-		draw_arc(Vector2(6, -18), 7.0, 0.25, PI - 0.25, 10, ink, 2.2, true)
-	else:
-		var cap := Color(0.8, 0.38, 0.8)
-		# ก้าน
-		Art.box(self, Rect2(-13, -30, 26, 30), Color(1.0, 0.95, 0.85), 9.0)
-		# หมวกเห็ด (ครึ่งวงรี)
-		var top := PackedVector2Array()
-		var top_ink := PackedVector2Array()
-		for i in 17:
-			var a := PI + PI * i / 16.0
-			top.append(Vector2(cos(a) * 26.0, -30 + sin(a) * 26.0))
-			top_ink.append(Vector2(cos(a) * 29.0, -29 + sin(a) * 29.0))
-		top_ink.append(Vector2(29, -24))
-		top_ink.append(Vector2(-29, -24))
-		Art.poly(self, top_ink, ink)
-		Art.poly(self, top, cap)
-		Art.rrect(self, Rect2(-27, -32, 54, 7), cap.darkened(0.18), 3.0)
-		Art.ellipse(self, Vector2(-11, -44), 6.0, 5.0, Color(1, 1, 1, 0.9))
-		Art.ellipse(self, Vector2(9, -48), 4.5, 4.0, Color(1, 1, 1, 0.9))
-		Art.ellipse(self, Vector2(17, -38), 3.0, 2.6, Color(1, 1, 1, 0.9))
-		# หน้าบึ้ง
-		for sx in [3.0, 12.0]:
-			Art.ellipse(self, Vector2(sx, -15), 2.8, 3.6, Color(0.2, 0.12, 0.12))
-			Art.circle(self, Vector2(sx + 0.9, -16.2), 1.0, Color.WHITE)
-		Art.line(self, Vector2(0, -22), Vector2(5, -20), ink, 2.0)
-		Art.line(self, Vector2(15, -22), Vector2(10, -20), ink, 2.0)
-		Art.ellipse(self, Vector2(-3, -9), 3.4, 2.2, Color(1.0, 0.5, 0.55, 0.5))
-		draw_arc(Vector2(7.5, -6), 3.0, PI + 0.3, TAU - 0.3, 8, ink, 2.0, true)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_sprite.flip_h = facing > 0
+	_sprite.scale = Vector2(0.5 * (1.0 - stretch * 0.6), 0.5 * (1.0 + stretch + breathe))
+	_sprite.rotation = sin(_t * 9.0) * 0.05 if kind == "mushroom" and absf(velocity.x) > 5.0 else 0.0
+	Art.shadow(self, Vector2(0, 2), 28.0)
 
 	# หลอดเลือด (แสดงเมื่อโดนตีแล้ว)
 	if hp < max_hp and not _dying:
-		var top_y: float = -_stats["size"].y - 28.0
+		var top_y: float = -_stats["size"].y - 30.0
 		Art.rrect(self, Rect2(-26, top_y, 52, 9), Color(0.2, 0.12, 0.1, 0.85), 4.5)
 		Art.rrect(self, Rect2(-24, top_y + 2, 48.0 * clampf(hp / max_hp, 0.0, 1.0), 5), Color(0.98, 0.4, 0.4), 2.5)
 	if _stun > 0.5:

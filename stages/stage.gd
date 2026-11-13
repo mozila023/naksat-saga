@@ -4,6 +4,14 @@ class_name Stage extends Node2D
 
 const GROUND_Y := 600.0
 
+# ภาพฉากหลังจริงของแต่ละแบบแผนที่ (ไฟล์ assets/art/bg_<style>.png และ ground_<style>.png)
+#   split = แถวในภาพต้นฉบับที่พื้นเริ่ม, feet = แถวที่เท้าตัวละครเหยียบ, sky = สีขอบบนของภาพ
+const ART := {
+	"village": {"split": 444.0, "feet": 474.0, "sky": Color(0.374, 0.768, 0.971)},
+	"field": {"split": 449.0, "feet": 474.0, "sky": Color(0.35, 0.765, 0.971)},
+	"cave": {"split": 432.0, "feet": 466.0, "sky": Color(0.142, 0.119, 0.124)},
+}
+
 var width := 4000.0
 var title := ""
 var style := "village"  # village / field / cave
@@ -17,6 +25,8 @@ var _t := 0.0
 
 func _ready() -> void:
 	build()
+	if has_art():
+		_make_art_background()
 	_make_sky()
 	_make_bounds()
 
@@ -27,7 +37,39 @@ func build() -> void:
 
 # ---------- เครื่องมือสำหรับวางของในแผนที่ ----------
 
+## มีภาพฉากหลังจริงสำหรับแผนที่แบบนี้ไหม (ถ้าไม่มีจะวาดด้วยโค้ดแทน)
+func has_art() -> bool:
+	return ART.has(style) and ResourceLoader.exists("res://assets/art/bg_%s.png" % style)
+
+
+func _make_art_background() -> void:
+	var info: Dictionary = ART[style]
+	var s: float = GROUND_Y / info["feet"]
+	var bg: Texture2D = load("res://assets/art/bg_%s.png" % style)
+	var ground: Texture2D = load("res://assets/art/ground_%s.png" % style)
+	# วิวด้านหลัง เลื่อนช้ากว่าตัวละคร (ดูมีมิติ) ส่วนพื้นเลื่อนเท่าตัวละคร
+	_add_art_layer(bg, s, 0.0, 0.5, -10)
+	_add_art_layer(ground, s, info["split"] * s - 1.0, 1.0, -9)
+
+
+func _add_art_layer(tex: Texture2D, s: float, y: float, scroll: float, z: int) -> void:
+	var par := Parallax2D.new()
+	par.scroll_scale = Vector2(scroll, 1.0)
+	par.repeat_size = Vector2(tex.get_width() * s, 0)
+	par.repeat_times = 4
+	par.z_index = z
+	add_child(par)
+	var sprite := Sprite2D.new()
+	sprite.texture = tex
+	sprite.centered = false
+	sprite.scale = Vector2(s, s)
+	sprite.position = Vector2(0, y)
+	par.add_child(sprite)
+
+
 func add_bg(kind: String, scroll: float, autoscroll := 0.0) -> void:
+	if has_art():
+		return
 	var par := Parallax2D.new()
 	par.scroll_scale = Vector2(scroll, 1.0)
 	par.repeat_size = Vector2(BgLayer.TILE, 0)
@@ -56,6 +98,8 @@ func add_platform(x: float, y: float, w: float) -> void:
 
 
 func add_prop(kind: String, x: float, extra := {}) -> void:
+	if has_art() and kind != "sign":
+		return  # ภาพฉากหลังจริงมีบ้าน ต้นไม้ ฯลฯ อยู่แล้ว
 	var p := {"kind": kind, "x": x}
 	p.merge(extra)
 	_props.append(p)
@@ -129,6 +173,7 @@ func _make_sky() -> void:
 	layer.layer = -100
 	add_child(layer)
 	var grad := Gradient.new()
+	var art_sky := has_art()
 	match style:
 		"cave":
 			grad.set_color(0, Color(0.08, 0.06, 0.1))
@@ -139,6 +184,9 @@ func _make_sky() -> void:
 		_:
 			grad.set_color(0, Color(0.3, 0.68, 0.98))
 			grad.set_color(1, Color(0.8, 0.95, 1.0))
+	if art_sky:
+		grad.set_color(0, ART[style]["sky"])
+		grad.set_color(1, ART[style]["sky"])
 	var tex := GradientTexture2D.new()
 	tex.gradient = grad
 	tex.fill_from = Vector2(0, 0)
@@ -151,7 +199,7 @@ func _make_sky() -> void:
 	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(rect)
-	if style != "cave":
+	if style != "cave" and not art_sky:
 		# ดวงอาทิตย์เรืองแสงมุมขวาบน
 		var sun_grad := Gradient.new()
 		sun_grad.set_color(0, Color(1.0, 0.98, 0.8, 0.95))
@@ -205,7 +253,8 @@ func _draw() -> void:
 	var cx := _view_center_x()
 	var x0 := cx - 1400.0
 	var x1 := cx + 1400.0
-	_draw_ground(x0, x1)
+	if not has_art():
+		_draw_ground(x0, x1)
 	for p in _props:
 		if p["x"] > x0 - 300.0 and p["x"] < x1 + 300.0:
 			_draw_prop(p)

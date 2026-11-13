@@ -1,6 +1,7 @@
 class_name ChibiVisual extends Node2D
-## ภาพตัวละครชิบิแบบวาดด้วยโค้ด (ภาพชั่วคราว รอเปลี่ยนเป็นภาพจริง)
-## ทุกร่างใช้โครงตัวเดียวกัน ขนาดเท่ากัน เปลี่ยนแค่ชุด (outfit)
+## ภาพตัวละคร: ถ้า outfit มี "sprite" (ที่อยู่ไฟล์ภาพ) จะใช้ภาพจริง แล้วขยับด้วยโค้ด (โยกตัว เด้ง พุ่งตอนตี)
+## ถ้าไม่มี จะวาดตัวชิบิด้วยโค้ดแทน (ภาพสำรอง)
+## ทุกร่างใช้ขนาดเท่ากัน เปลี่ยนแค่ชุด (outfit)
 
 var outfit := {}
 var moving := false
@@ -9,14 +10,56 @@ var in_air := false
 var swing := -1.0  # ความคืบหน้าท่าตี 0..1 (ติดลบ = ไม่ได้ตี)
 var _t := 0.0
 var _blink_offset := randf() * 3.0
+var _sprite: Sprite2D
+var _sprite_path := ""
 
 
 func _process(delta: float) -> void:
 	_t += delta
+	_update_sprite()
 	queue_redraw()
 
 
+func _update_sprite() -> void:
+	var path: String = outfit.get("sprite", "")
+	if path != _sprite_path:
+		_sprite_path = path
+		if path == "" or not ResourceLoader.exists(path):
+			if _sprite:
+				_sprite.queue_free()
+				_sprite = null
+		else:
+			if _sprite == null:
+				_sprite = Sprite2D.new()
+				_sprite.centered = false
+				add_child(_sprite)
+			var tex: Texture2D = load(path)
+			_sprite.texture = tex
+			_sprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
+	if _sprite == null:
+		return
+	var rate := 20.0 if running else 13.0
+	var rot := 0.0
+	var pos := Vector2(0, 3)
+	var breathe := 1.0 + sin(_t * 3.0) * 0.012
+	if in_air:
+		rot = 0.07
+	elif moving:
+		rot = sin(_t * rate) * 0.075
+		pos.y -= absf(sin(_t * rate)) * 5.0
+	if swing >= 0.0:
+		rot += lerpf(-0.28, 0.3, swing)
+		pos.x += sin(swing * PI) * 12.0
+	_sprite.rotation = rot
+	_sprite.position = pos
+	_sprite.scale = Vector2(0.5, 0.5 * breathe)  # ไฟล์ภาพละเอียด 2 เท่าของขนาดที่แสดง
+
+
 func _draw() -> void:
+	if _sprite:
+		if not in_air:
+			Art.shadow(self, Vector2(0, 2), 26.0)
+		return
 	var skin: Color = outfit.get("skin", Color(1.0, 0.87, 0.74))
 	var shirt: Color = outfit.get("shirt", Color.WHITE)
 	var pants: Color = outfit.get("pants", Color(0.25, 0.35, 0.6))

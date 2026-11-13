@@ -76,7 +76,7 @@ func set_camera_limits(stage_width: float) -> void:
 
 
 func get_hurt_rect() -> Rect2:
-	return Rect2(global_position + Vector2(-17, -74), Vector2(34, 74))
+	return Rect2(global_position + Vector2(-18, -86), Vector2(36, 86))
 
 
 func _physics_process(delta: float) -> void:

@@ -10,7 +10,7 @@ var _t := 0.0
 
 func _ready() -> void:
 	prompt = "กด ↑ เพื่อคุย"
-	label_height = 100.0
+	label_height = 112.0
 	super()
 	_visual = ChibiVisual.new()
 	_visual.outfit = outfit
