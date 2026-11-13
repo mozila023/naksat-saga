@@ -49,6 +49,8 @@ var level := 1
 var exp := 0
 var money := 0
 var items := {"potion": 2}  # รหัสไอเทม -> จำนวน
+const HOTBAR_SIZE := 7
+var hotbar: Array = ["", "", "", "", "", "", ""]  # ช่องไอเทม 1-7 (รหัสไอเทม หรือ "" = ว่าง)
 
 var in_dialogue := false
 var _dialogue_done := Callable()
@@ -77,6 +79,8 @@ func _setup_input() -> void:
 	_add_action("form_next", [KEY_E])
 	_add_action("use_potion", [KEY_F])
 	_add_action("bag", [KEY_B])
+	for i in HOTBAR_SIZE:
+		_add_action("slot_%d" % (i + 1), [KEY_1 + i])
 
 
 func _add_action(action: String, keys: Array) -> void:
@@ -244,6 +248,30 @@ func add_item(id: String, amount := 1) -> void:
 	save_game()
 
 
+## ใส่ไอเทมลงช่อง 1-7 (id = "" คือเอาออก) ไอเทมเดียวกันอยู่ได้ช่องเดียว
+func set_hotbar(index: int, id: String) -> void:
+	if index < 0 or index >= HOTBAR_SIZE:
+		return
+	if id != "":
+		for i in HOTBAR_SIZE:
+			if hotbar[i] == id:
+				hotbar[i] = hotbar[index]  # สลับที่กับของเดิมในช่องปลายทาง
+	hotbar[index] = id
+	stats_changed.emit()
+	save_game()
+
+
+## กดใช้ไอเทมในช่อง 1-7
+func use_hotbar(index: int) -> void:
+	var id: String = hotbar[index]
+	if id == "" or player == null or player.dead:
+		return
+	if item_count(id) <= 0:
+		banner.emit("%s หมดแล้ว" % ITEMS[id]["name"])
+		return
+	player.use_item(id)
+
+
 ## ดื่มยาแดง คืนค่า true ถ้าดื่มได้
 func use_potion() -> bool:
 	if item_count("potion") <= 0 or hp >= max_hp or hp <= 0.0:
@@ -360,6 +388,7 @@ func save_game() -> void:
 	cfg.set_value("game", "exp", exp)
 	cfg.set_value("game", "money", money)
 	cfg.set_value("game", "items", items)
+	cfg.set_value("game", "hotbar", hotbar)
 	cfg.save(SAVE_PATH)
 
 
@@ -382,6 +411,9 @@ func load_game() -> void:
 	for id in saved_items:
 		if ITEMS.has(id):
 			items[id] = int(saved_items[id])
+	var saved_bar: Array = cfg.get_value("game", "hotbar", [])
+	for i in mini(saved_bar.size(), HOTBAR_SIZE):
+		hotbar[i] = saved_bar[i] if ITEMS.has(saved_bar[i]) else ""
 	_apply_level()
 	hp = max_hp
 
@@ -395,6 +427,7 @@ func reset_save() -> void:
 	exp = 0
 	money = 0
 	items = {"potion": 2}
+	hotbar = ["", "", "", "", "", "", ""]
 	_apply_level()
 	hp = max_hp
 	save_game()

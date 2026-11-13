@@ -135,7 +135,22 @@ func _ready() -> void:
 	await tap("bag")
 	check(main.hud._bag.visible, "bag opens")
 	await shot("04b_bag")
+	# ช่องไอเทม 1-7: ลากจากกระเป๋ามาใส่ แล้วกดเลขเพื่อใช้
+	var slot3 = main.hud._hot_slots[2]
+	var row = main.hud._bag_list.get_child(0)
+	check(Game.hotbar[2] == "", "hotbar starts empty")
+	var drag := {"item": row.item}  # ข้อมูลเดียวกับที่ได้ตอนลากแถวในกระเป๋า
+	check(slot3._can_drop_data(Vector2.ZERO, drag), "hotbar slot accepts a dragged item")
+	slot3._drop_data(Vector2.ZERO, drag)
+	check(Game.hotbar[2] == "potion", "dragged item lands in slot 3")
+	main.hud._hot_slots[5]._drop_data(Vector2.ZERO, {"item": "potion", "from_slot": 2})
+	check(Game.hotbar[5] == "potion" and Game.hotbar[2] == "", "item moves between slots")
+	await shot("04c_hotbar")
 	await tap("bag")
+	Game.add_item("potion", 1)
+	Game.set_hp(10.0)
+	await tap("slot_6")
+	check(Game.hp > 10.0, "number key uses the slot item")
 	Game.add_item("frog_leg", 3)
 	Game.money = 100
 	await frames(400)

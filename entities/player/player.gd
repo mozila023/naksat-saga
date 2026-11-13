@@ -321,6 +321,17 @@ func _process_dash_hits() -> void:
 		Game.hit_enemies(rect, _damage(_dash_dmg), global_position.x - facing * 10.0, 0.0, _dash_hit)
 
 
+## ใช้ไอเทมจากช่อง 1-7
+func use_item(id: String) -> void:
+	if id == "potion":
+		if Game.hp >= Game.max_hp:
+			Game.banner.emit("เลือดเต็มอยู่แล้ว")
+		else:
+			_drink_potion()
+	else:
+		Game.banner.emit("%s ใช้ไม่ได้ — เอาไปขายให้ลุงหมูได้" % Game.ITEMS[id]["name"])
+
+
 func _drink_potion() -> void:
 	if Game.use_potion():
 		visual.flash(Color(0.6, 2.4, 0.8), 0.35)

@@ -17,6 +17,7 @@ var _potion_label: Label
 var _bag: Panel
 var _bag_list: VBoxContainer
 var _bag_stats: Label
+var _hot_slots: Array = []
 var _quest_label: Label
 var _forms_label: Label
 var _banner: Label
@@ -50,6 +51,7 @@ func _ready() -> void:
 		_build_touch()
 
 	_build_bag()
+	_build_hotbar()
 	Game.stats_changed.connect(_refresh_stats)
 	_refresh_stats()
 	Game.hp_changed.connect(_refresh_hp)
@@ -183,6 +185,96 @@ func _refresh_stats() -> void:
 	_potion_label.text = "x%d  [F]" % Game.item_count("potion")
 	if _bag.visible:
 		_fill_bag()
+	for slot in _hot_slots:
+		slot.refresh()
+
+
+# ---------- ช่องไอเทม 1-7 ----------
+# ลากไอเทมจากกระเป๋ามาใส่ / กดเลข 1-7 หรือคลิกเพื่อใช้ / คลิกขวาเพื่อเอาออก / ลากสลับช่องกันได้
+
+func _build_hotbar() -> void:
+	var holder := Control.new()
+	var touch := DisplayServer.is_touchscreen_available()
+	holder.set_anchors_preset(Control.PRESET_TOP_RIGHT if touch else Control.PRESET_BOTTOM_RIGHT)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(holder)
+	for i in Game.HOTBAR_SIZE:
+		var slot := HotSlot.new()
+		slot.index = i
+		slot.hud = self
+		slot.position = Vector2(-16 - (Game.HOTBAR_SIZE - i) * 62.0, 16 if touch else -78)
+		slot.size = Vector2(56, 56)
+		holder.add_child(slot)
+		slot.build()
+		_hot_slots.append(slot)
+
+
+class HotSlot extends Panel:
+	var index := 0
+	var hud: Hud
+	var _icon: TextureRect
+	var _count: Label
+
+	func build() -> void:
+		add_theme_stylebox_override("panel", hud._box(Color(1.0, 0.96, 0.85, 0.85), 10))
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		_icon = hud._icon("coin", 40)
+		_icon.position = Vector2(8, 10)
+		_icon.size = Vector2(40, 40)
+		add_child(_icon)
+		var key := hud._label(str(index + 1), 15, Color(1.0, 0.9, 0.4), 5)
+		key.position = Vector2(6, 0)
+		add_child(key)
+		_count = hud._label("", 15, Color.WHITE, 5)
+		_count.position = Vector2(0, 34)
+		_count.size = Vector2(52, 20)
+		_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		add_child(_count)
+		refresh()
+
+	func refresh() -> void:
+		var id: String = Game.hotbar[index]
+		if id == "":
+			_icon.visible = false
+			_count.text = ""
+			tooltip_text = "ช่อง %d (ว่าง) — ลากไอเทมจากกระเป๋ามาใส่" % (index + 1)
+		else:
+			var n := Game.item_count(id)
+			_icon.visible = true
+			_icon.texture = load("res://assets/art/items/item_%s.png" % Game.ITEMS[id]["icon"])
+			_icon.modulate = Color.WHITE if n > 0 else Color(1, 1, 1, 0.35)
+			_count.text = "x%d" % n
+			tooltip_text = "%s — กด %d เพื่อใช้ / คลิกขวาเพื่อเอาออก" % [Game.ITEMS[id]["name"], index + 1]
+
+	func _gui_input(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed:
+			if event.button_index == MOUSE_BUTTON_RIGHT:
+				Game.set_hotbar(index, "")
+			elif event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
+				Game.use_hotbar(index)
+
+	func _get_drag_data(_at: Vector2) -> Variant:
+		var id: String = Game.hotbar[index]
+		if id == "":
+			return null
+		set_drag_preview(hud._icon(Game.ITEMS[id]["icon"], 44))
+		return {"item": id, "from_slot": index}
+
+	func _can_drop_data(_at: Vector2, data: Variant) -> bool:
+		return data is Dictionary and data.has("item")
+
+	func _drop_data(_at: Vector2, data: Variant) -> void:
+		Game.set_hotbar(index, data["item"])
+
+
+## แถวไอเทมในกระเป๋า (ลากไปใส่ช่อง 1-7 ได้)
+class BagRow extends HBoxContainer:
+	var item := ""
+	var hud: Hud
+
+	func _get_drag_data(_at: Vector2) -> Variant:
+		set_drag_preview(hud._icon(Game.ITEMS[item]["icon"], 44))
+		return {"item": item}
 
 
 # ---------- กระเป๋า (กด B) ----------
@@ -198,9 +290,9 @@ func _build_bag() -> void:
 	var title := _label("กระเป๋า", 30, Color(0.85, 0.4, 0.15), 0)
 	title.position = Vector2(28, 14)
 	_bag.add_child(title)
-	var hint := _label("กด B เพื่อปิด", 16, Color(0.5, 0.4, 0.3), 0)
-	hint.position = Vector2(380, 26)
-	hint.size = Vector2(192, 24)
+	var hint := _label("ลากไอเทมไปใส่ช่อง 1-7    กด B เพื่อปิด", 16, Color(0.5, 0.4, 0.3), 0)
+	hint.position = Vector2(200, 26)
+	hint.size = Vector2(372, 24)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_bag.add_child(hint)
 	_bag_stats = _label("", 19, Color(0.3, 0.18, 0.08), 0)
@@ -230,7 +322,11 @@ func _fill_bag() -> void:
 			continue
 		any = true
 		var info: Dictionary = Game.ITEMS[id]
-		var row := HBoxContainer.new()
+		var row := BagRow.new()
+		row.item = id
+		row.hud = self
+		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		row.mouse_default_cursor_shape = Control.CURSOR_DRAG
 		row.add_theme_constant_override("separation", 12)
 		row.add_child(_icon(info["icon"], 44))
 		var text := "%s  x%d\n%s" % [info["name"], count, info["desc"]]
@@ -439,7 +535,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _build_help() -> void:
 	if DisplayServer.is_touchscreen_available():
 		return
-	var help := _label("← → เดิน   Shift วิ่งไว   Space กระโดด   ↓+Space ลงแท่น\nC โจมตี   A S D สกิล   Q/E สลับร่าง   F ดื่มยา\n↑ คุย/เข้าประตู   B กระเป๋า   F9 เริ่มใหม่", 15, Color(1, 1, 1, 0.92), 5)
+	var help := _label("← → เดิน   Shift วิ่งไว   Space กระโดด   ↓+Space ลงแท่น\nC โจมตี   A S D สกิล   Q/E สลับร่าง   F ดื่มยา\n↑ คุย/เข้าประตู   B กระเป๋า   1-7 ใช้ไอเทม   F9 เริ่มใหม่", 15, Color(1, 1, 1, 0.92), 5)
 	help.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	help.position = Vector2(16, -84)
 	help.add_theme_constant_override("line_spacing", -4)
@@ -452,6 +548,10 @@ func _process(delta: float) -> void:
 	_dlg_delay = maxf(_dlg_delay - delta, 0.0)
 	if Input.is_action_just_pressed("bag") and not Game.in_dialogue:
 		toggle_bag()
+	if not Game.in_dialogue:
+		for i in Game.HOTBAR_SIZE:
+			if Input.is_action_just_pressed("slot_%d" % (i + 1)):
+				Game.use_hotbar(i)
 	if Game.in_dialogue and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("attack") or Input.is_action_just_pressed("jump")):
 		_advance_dialogue()
 
