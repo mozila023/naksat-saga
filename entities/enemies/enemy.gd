@@ -22,6 +22,7 @@ var _dying := false
 var _hop_t := 0.0
 var _t := 0.0
 var _sprite: Sprite2D
+var _pop := 0.0  # ตัวยุบตอนโดนตี
 
 
 func _init() -> void:
@@ -124,7 +125,13 @@ func take_hit(dmg: float, dir: float, stun: float) -> void:
 	_stun = maxf(_stun, maxf(0.28, stun))
 	velocity = Vector2(dir * 230.0, -170.0)
 	Game.spawn_number(global_position + Vector2(0, -_stats["size"].y), str(int(dmg)), Color(1, 0.95, 0.5))
+	_pop = 1.0
+	var mid: Vector2 = global_position + Vector2(-dir * 8.0, -_stats["size"].y * 0.55)
+	Fx.spawn(get_parent(), mid, "spark", Vector2(38, 38), Color(1.0, 0.85, 0.35), 1, 0.22)
 	if hp <= 0.0:
+		# ตาย: ระเบิดควัน + ดาวประกาย
+		Fx.spawn(get_parent(), mid, "burst", Vector2(56, 13), Color(1, 1, 1, 0.9), 1, 0.4)
+		Fx.spawn(get_parent(), mid, "star", Vector2(34, 90), Color(1.0, 0.9, 0.4), 1, 0.6)
 		_dying = true
 		remove_from_group("enemies")
 		Game.on_enemy_killed(kind)
@@ -136,7 +143,8 @@ func _draw() -> void:
 	var stretch := clampf(-velocity.y / 900.0, -0.18, 0.22)
 	var breathe := sin(_t * 5.0) * 0.03
 	_sprite.flip_h = facing > 0
-	_sprite.scale = Vector2(0.5 * (1.0 - stretch * 0.6), 0.5 * (1.0 + stretch + breathe))
+	_pop = move_toward(_pop, 0.0, get_process_delta_time() * 7.0)
+	_sprite.scale = Vector2(0.5 * (1.0 - stretch * 0.6 + _pop * 0.28), 0.5 * (1.0 + stretch + breathe - _pop * 0.24))
 	_sprite.rotation = sin(_t * 9.0) * 0.05 if kind == "mushroom" and absf(velocity.x) > 5.0 else 0.0
 	Art.shadow(self, Vector2(0, 2), 28.0)
 

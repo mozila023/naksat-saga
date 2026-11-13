@@ -5,7 +5,7 @@ class_name Forms
 ## ชนิดสกิล (kind):
 ##   melee = ตีด้านหน้า   (w, h = ขนาดระยะตี, hits = จำนวนครั้ง, interval = เวลาห่างแต่ละครั้ง)
 ##   dash  = พุ่งตัว       (speed, time, jump = แรงกระโดดตอนพุ่ง, dmg = ดาเมจตอนชน, invuln = อมตะระหว่างพุ่ง)
-##   aoe   = ตีรอบตัว     (radius, stun = เวลาที่ศัตรูมึน)
+##   aoe   = ตีรอบตัว     (radius, stun = เวลาที่ศัตรูมึน, style = หน้าตาเอฟเฟกต์: spin หมุนฟาด / roar คำราม)
 ## dmg = ตัวคูณดาเมจ, cd = คูลดาวน์ (วินาที)
 
 const LIST := [
@@ -23,13 +23,15 @@ const LIST := [
 			"hair": Color(0.12, 0.1, 0.12),
 			"ears": "",
 			"sprite": "res://assets/art/hero_normal.png",
+			"rig": {"head_y": 0.535, "hip_y": 0.81, "arm_l": 0.335, "arm_r": 0.715, "leg_split": 0.52},
+			"weapon_kind": "sword",
 			"stripes": false,
 			"weapon": Color(0.65, 0.45, 0.25),
 		},
 		"skills": [
 			{"name": "ฟันแรง", "kind": "melee", "cd": 2.0, "dmg": 2.2, "w": 130.0, "h": 100.0, "hits": 1, "interval": 0.0, "fx": "slash"},
 			{"name": "พุ่งหลบ", "kind": "dash", "cd": 3.0, "speed": 900.0, "time": 0.18, "jump": 0.0, "dmg": 0.0, "invuln": true},
-			{"name": "หมุนฟาด", "kind": "aoe", "cd": 8.0, "dmg": 3.0, "radius": 150.0, "stun": 0.6},
+			{"name": "หมุนฟาด", "kind": "aoe", "cd": 8.0, "dmg": 3.0, "radius": 150.0, "stun": 0.6, "style": "spin"},
 		],
 	},
 	{
@@ -46,13 +48,15 @@ const LIST := [
 			"hair": Color(0.12, 0.1, 0.12),
 			"ears": "tiger",
 			"sprite": "res://assets/art/hero_tiger.png",
+			"rig": {"head_y": 0.56, "hip_y": 0.81, "arm_l": 0.31, "arm_r": 0.725, "leg_split": 0.5, "leg_x0": 0.31, "back_static": true},
+			"weapon_kind": "claw",
 			"stripes": true,
 			"weapon": Color(1.0, 0.95, 0.8),
 		},
 		"skills": [
 			{"name": "กรงเล็บ", "kind": "melee", "cd": 2.5, "dmg": 1.2, "w": 140.0, "h": 110.0, "hits": 3, "interval": 0.12, "fx": "claw"},
 			{"name": "กระโจน", "kind": "dash", "cd": 4.0, "speed": 760.0, "time": 0.32, "jump": -420.0, "dmg": 2.0, "invuln": true},
-			{"name": "คำราม", "kind": "aoe", "cd": 12.0, "dmg": 4.0, "radius": 260.0, "stun": 2.0},
+			{"name": "คำราม", "kind": "aoe", "cd": 12.0, "dmg": 4.0, "radius": 260.0, "stun": 2.0, "style": "roar"},
 		],
 	},
 ]

@@ -30,6 +30,12 @@ var _regen_wait := 0.0
 var _was_on_floor := true
 var _squash := 0.0  # ยุบตัวตอนลงพื้น ให้ดูนุ่ม
 var _dust_t := 0.0
+var _shake_t := 0.0
+var _shake_time := 0.2
+var _shake_amt := 0.0
+var _ghost_t := 0.0
+var _spin_t := 0.0
+var _was_dashing := false
 
 
 func _init() -> void:
@@ -73,6 +79,28 @@ func set_camera_limits(stage_width: float) -> void:
 	camera.limit_bottom = 720
 	camera.limit_top = -700
 	camera.reset_smoothing()
+
+
+func shake(amount: float, time := 0.2) -> void:
+	if amount >= _shake_amt * (_shake_t / maxf(_shake_time, 0.01)):
+		_shake_amt = amount
+		_shake_time = time
+		_shake_t = time
+
+
+func _process(delta: float) -> void:
+	# สั่นจอ: ขยับกล้องแบบสุ่มแล้วค่อย ๆ เบาลง
+	if _shake_t > 0.0:
+		_shake_t -= delta
+		var k := _shake_amt * maxf(_shake_t, 0.0) / _shake_time
+		camera.offset = Vector2(randf_range(-k, k), randf_range(-k, k))
+	else:
+		camera.offset = Vector2.ZERO
+
+
+func _texture() -> Texture2D:
+	var path: String = Game.current_form()["outfit"].get("sprite", "")
+	return load(path) if path != "" and ResourceLoader.exists(path) else null
 
 
 func get_hurt_rect() -> Rect2:
@@ -121,6 +149,7 @@ func _physics_process(delta: float) -> void:
 				set_collision_mask_value(4, false)
 			else:
 				velocity.y = JUMP_VELOCITY * float(form["jump"])
+				Fx.spawn(get_parent(), global_position + Vector2(0, -4), "puff", Vector2(18, 5), Color(1, 1, 1, 0.5), facing, 0.25)
 		if Input.is_action_pressed("attack"):
 			_basic_attack()
 		for i in 3:
@@ -137,13 +166,32 @@ func _physics_process(delta: float) -> void:
 	_process_dash_hits()
 	_process_queued(delta)
 
+	# เงาตามตัวระหว่างพุ่ง + คลื่นกระแทกตอนจบท่าพุ่งโจมตี
+	if _dash_t > 0.0:
+		_ghost_t -= delta
+		if _ghost_t <= 0.0:
+			_ghost_t = 0.035
+			var tint: Color = form["outfit"]["shirt"].lerp(Color(0.6, 0.9, 1.0), 0.5)
+			Fx.ghost(get_parent(), global_position, _texture(), tint, facing)
+	elif _was_dashing and _dash_dmg > 0.0:
+		Fx.spawn(get_parent(), global_position + Vector2(0, -10), "ring", Vector2(90, 90), Color(1.0, 0.7, 0.3), facing, 0.3)
+		Fx.spawn(get_parent(), global_position + Vector2(0, -4), "puff", Vector2(34, 8), Color(1, 1, 1, 0.6), facing, 0.35)
+		Game.shake(6.0, 0.2)
+	_was_dashing = _dash_t > 0.0
+
 	if is_on_floor() and not _was_on_floor:
 		_squash = 1.0
 		Fx.spawn(get_parent(), global_position + Vector2(0, -4), "puff", Vector2(16, 5), Color(1, 1, 1, 0.45), facing, 0.25)
 	_was_on_floor = is_on_floor()
 	_squash = move_toward(_squash, 0.0, delta * 6.0)
 	var stretch := clampf(absf(velocity.y) / 1600.0, 0.0, 0.14) if not is_on_floor() else 0.0
-	visual.scale = Vector2(facing * (1.0 + _squash * 0.16 - stretch), 1.0 - _squash * 0.16 + stretch)
+	var look := facing
+	if _spin_t > 0.0:
+		# หมุนตัวเร็ว ๆ ระหว่างท่าหมุนฟาด
+		_spin_t -= delta
+		look = 1 if int(_spin_t * 22.0) % 2 == 0 else -1
+	visual.scale = Vector2(look * (1.0 + _squash * 0.16 - stretch), 1.0 - _squash * 0.16 + stretch)
+	visual.vy = velocity.y
 	visual.moving = absf(velocity.x) > 10.0 and is_on_floor()
 	visual.in_air = not is_on_floor()
 	visual.swing = 1.0 - _swing_t / SWING_TIME if _swing_t > 0.0 else -1.0
@@ -181,14 +229,24 @@ func _basic_attack() -> void:
 		return
 	_attack_cd = ATTACK_COOLDOWN
 	_swing_t = SWING_TIME
-	_melee(95.0, 90.0, 1.0, "slash", Color(1, 1, 1, 0.9))
+	var color: Color = Color(0.75, 0.92, 1.0) if Game.form_id == "normal" else Color(1.0, 0.75, 0.3)
+	_melee(100.0, 96.0, 1.0, "claw" if Game.current_form()["outfit"].get("weapon_kind", "") == "claw" else "slash", color)
 
 
 func _melee(w: float, h: float, mult: float, fx_kind: String, color: Color) -> void:
 	var x0 := global_position.x if facing > 0 else global_position.x - w
-	var rect := Rect2(Vector2(x0, global_position.y - 40.0 - h * 0.5), Vector2(w, h))
-	Fx.spawn(get_parent(), global_position + Vector2(facing * 14, -40), fx_kind, Vector2(w, h), color, facing)
-	Game.hit_enemies(rect, _damage(mult), global_position.x)
+	var rect := Rect2(Vector2(x0, global_position.y - 44.0 - h * 0.5), Vector2(w, h))
+	var heavy := mult >= 1.8
+	var fx_size := Vector2(w, h) * (1.25 if heavy else 1.0)
+	Fx.spawn(get_parent(), global_position + Vector2(facing * 14, -46), fx_kind, fx_size, color, facing, 0.3 if heavy else 0.22)
+	if heavy:
+		# ท่าหนัก: รอยฟันซ้อนอีกชั้น + ลำแสง
+		Fx.spawn(get_parent(), global_position + Vector2(facing * 30, -46), fx_kind, fx_size * 0.75, Color(1, 1, 1), facing, 0.2)
+		Fx.spawn(get_parent(), global_position + Vector2(facing * (w * 0.7), 0), "pillar", Vector2(26, 150), color, facing, 0.3)
+	var hits := Game.hit_enemies(rect, _damage(mult), global_position.x)
+	if hits > 0:
+		Game.shake(7.0 if heavy else 3.0, 0.18)
+		Game.hit_stop(0.07 if heavy else 0.035)
 
 
 func use_skill(index: int) -> void:
@@ -213,12 +271,30 @@ func use_skill(index: int) -> void:
 			if spec["invuln"]:
 				_invuln = maxf(_invuln, _dash_t + 0.1)
 			Fx.spawn(get_parent(), global_position + Vector2(0, -36), "puff", Vector2(40, 10), Color(1, 1, 1, 0.7), facing, 0.3)
+			Fx.spawn(get_parent(), global_position + Vector2(-facing * 10, -40), "ring", Vector2(46, 46), color, facing, 0.25)
+			_ghost_t = 0.0
 		"aoe":
 			var r := float(spec["radius"])
-			_swing_t = SWING_TIME
+			var center := global_position + Vector2(0, -44)
 			var rect := Rect2(global_position + Vector2(-r, -40.0 - r * 0.7), Vector2(r * 2.0, r * 1.4))
-			Fx.spawn(get_parent(), global_position + Vector2(0, -40), "ring", Vector2(r, r), color, facing, 0.4)
-			Game.hit_enemies(rect, _damage(float(spec["dmg"])), global_position.x, float(spec["stun"]))
+			visual.cast = 0.45
+			if spec.get("style", "") == "roar":
+				# คำราม: วงคลื่น 3 ชั้น + ตัวหนังสือ + จอสั่นแรง
+				for i in 3:
+					Fx.spawn(get_parent(), center, "ring", Vector2(r * (0.55 + i * 0.25), r), Color(1.0, 0.7, 0.25), facing, 0.35 + i * 0.15)
+				Fx.spawn(get_parent(), global_position, "pillar", Vector2(60, 260), Color(1.0, 0.75, 0.3), facing, 0.5)
+				Fx.spawn(get_parent(), center, "star", Vector2(r * 0.6, 160), Color(1.0, 0.85, 0.4), facing, 0.7)
+				Game.spawn_text(center + Vector2(-50, -70), "โฮก!!", Color(1.0, 0.8, 0.3), 52)
+				Game.shake(12.0, 0.45)
+			else:
+				# หมุนฟาด: ใบมีดหมุนรอบตัว + ตัวละครหมุน
+				_spin_t = 0.4
+				Fx.spawn(get_parent(), center, "spin", Vector2(r, r), color, facing, 0.42)
+				Fx.spawn(get_parent(), center, "ring", Vector2(r, r), color, facing, 0.4)
+				Fx.spawn(get_parent(), global_position + Vector2(0, -4), "puff", Vector2(46, 9), Color(1, 1, 1, 0.6), facing, 0.4)
+				Game.shake(6.0, 0.25)
+			if Game.hit_enemies(rect, _damage(float(spec["dmg"])), global_position.x, float(spec["stun"])) > 0:
+				Game.hit_stop(0.08)
 
 
 func _process_queued(delta: float) -> void:
@@ -258,7 +334,16 @@ func cycle_form(step: int) -> void:
 		return
 	var i := ids.find(Game.form_id)
 	Game.set_form(ids[posmod(i + step, ids.size())])
-	Fx.spawn(get_parent(), global_position + Vector2(0, -40), "ring", Vector2(70, 70), Game.current_form()["outfit"]["shirt"], 1, 0.35)
+	# เอฟเฟกต์แปลงร่าง: ตัวขาววาบ + ลำแสง + ควัน + ดาวประกาย
+	var tint: Color = Game.current_form()["outfit"]["shirt"]
+	visual.flash(Color(4, 4, 4), 0.35)
+	_squash = 1.0
+	Fx.spawn(get_parent(), global_position, "pillar", Vector2(46, 240), tint, 1, 0.45)
+	Fx.spawn(get_parent(), global_position + Vector2(0, -44), "burst", Vector2(70, 16), Color(1, 1, 1, 0.9), 1, 0.4)
+	Fx.spawn(get_parent(), global_position + Vector2(0, -44), "ring", Vector2(90, 90), tint, 1, 0.4)
+	Fx.spawn(get_parent(), global_position + Vector2(0, -30), "star", Vector2(50, 130), Color(1.0, 0.9, 0.4), 1, 0.8)
+	Game.spawn_text(global_position + Vector2(-60, -130), Game.current_form()["name"], tint.lerp(Color.WHITE, 0.4), 30)
+	Game.shake(4.0, 0.2)
 
 
 # ---------- คุย / เข้าประตู ----------
@@ -283,6 +368,10 @@ func take_damage(amount: float, from_x: float) -> void:
 		return
 	Game.set_hp(Game.hp - amount)
 	Game.spawn_number(global_position + Vector2(0, -80), str(int(amount)), Color(1, 0.35, 0.35))
+	visual.hurt = 0.3
+	visual.flash(Color(2.2, 0.5, 0.5), 0.3)
+	Fx.spawn(get_parent(), global_position + Vector2(0, -50), "spark", Vector2(34, 34), Color(1.0, 0.4, 0.4), 1, 0.25)
+	Game.shake(6.0, 0.22)
 	_invuln = 0.9
 	_knock_t = 0.22
 	_regen_wait = 5.0

@@ -8,6 +8,10 @@ var moving := false
 var running := false
 var in_air := false
 var swing := -1.0  # ความคืบหน้าท่าตี 0..1 (ติดลบ = ไม่ได้ตี)
+var vy := 0.0      # ความเร็วแนวตั้ง (ไว้เลือกท่ากระโดดขึ้น/ลง)
+var hurt := 0.0    # เวลาที่เหลือของท่าโดนตี
+var cast := 0.0    # เวลาที่เหลือของท่าชูแขนร่ายสกิล
+var _rig: ChibiRig
 var _t := 0.0
 var _blink_offset := randf() * 3.0
 var _sprite: Sprite2D
@@ -16,15 +20,43 @@ var _sprite_path := ""
 
 func _process(delta: float) -> void:
 	_t += delta
+	hurt = maxf(hurt - delta, 0.0)
+	cast = maxf(cast - delta, 0.0)
 	_update_sprite()
+	if _rig:
+		_rig.moving = moving
+		_rig.running = running
+		_rig.in_air = in_air
+		_rig.vy = vy
+		_rig.swing = swing
+		_rig.hurt = hurt
+		_rig.cast = cast
+		_rig.animate(delta)
 	queue_redraw()
+
+
+## กะพริบสีทั้งตัว (ขาว = เปลี่ยนร่าง, แดง = โดนตี)
+func flash(color: Color, time := 0.2) -> void:
+	if _rig:
+		_rig.flash(color, time)
 
 
 func _update_sprite() -> void:
 	var path: String = outfit.get("sprite", "")
 	if path != _sprite_path:
 		_sprite_path = path
-		if path == "" or not ResourceLoader.exists(path):
+		if _rig:
+			_rig.queue_free()
+			_rig = null
+		if path != "" and ResourceLoader.exists(path) and outfit.has("rig"):
+			# มีข้อมูลรอยตัด -> ตัดภาพเป็นชิ้นแล้วขยับเป็นท่า
+			if _sprite:
+				_sprite.queue_free()
+				_sprite = null
+			_rig = ChibiRig.new()
+			add_child(_rig)
+			_rig.setup(load(path), outfit["rig"], outfit.get("weapon_kind", "sword"))
+		elif path == "" or not ResourceLoader.exists(path):
 			if _sprite:
 				_sprite.queue_free()
 				_sprite = null
@@ -56,7 +88,7 @@ func _update_sprite() -> void:
 
 
 func _draw() -> void:
-	if _sprite:
+	if _sprite or _rig:
 		if not in_air:
 			Art.shadow(self, Vector2(0, 2), 26.0)
 		return

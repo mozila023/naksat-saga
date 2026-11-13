@@ -27,6 +27,7 @@ var frog_kills := 0
 
 var in_dialogue := false
 var _dialogue_done := Callable()
+var _stopping := false
 
 
 func _ready() -> void:
@@ -102,18 +103,44 @@ func hit_enemies(rect: Rect2, dmg: float, from_x: float, stun := 0.0, skip: Arra
 	return count
 
 
-func spawn_number(pos: Vector2, text: String, color: Color) -> void:
+## สั่นจอ (amount = ความแรงเป็นพิกเซล)
+func shake(amount: float, time := 0.2) -> void:
+	if player and is_instance_valid(player):
+		player.shake(amount, time)
+
+
+## หยุดภาพชั่วพริบตาตอนตีโดน ให้รู้สึกหนักมือ
+func hit_stop(time := 0.05) -> void:
+	if _stopping:
+		return
+	_stopping = true
+	Engine.time_scale = 0.05
+	await get_tree().create_timer(time, true, false, true).timeout
+	Engine.time_scale = 1.0
+	_stopping = false
+
+
+## ข้อความเด้งกลางฉาก เช่น "โฮก!"
+func spawn_text(pos: Vector2, text: String, color: Color, font_size := 44) -> void:
+	spawn_number(pos, text, color, font_size)
+
+
+func spawn_number(pos: Vector2, text: String, color: Color, font_size := 26) -> void:
 	if main == null:
 		return
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", 26)
+	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.05))
 	label.add_theme_constant_override("outline_size", 6)
 	label.z_index = 50
 	label.position = pos + Vector2(randf_range(-20, 10), -30)
 	main.world.add_child(label)
+	# เด้งโตขึ้นแล้วหดกลับ ก่อนลอยขึ้นและจางหาย
+	label.pivot_offset = Vector2(font_size * 0.4, font_size * 0.6)
+	label.scale = Vector2(0.4, 0.4)
+	label.create_tween().tween_property(label, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	var tw := label.create_tween().set_parallel(true)
 	tw.tween_property(label, "position:y", label.position.y - 60.0, 0.7)
 	tw.tween_property(label, "modulate:a", 0.0, 0.7).set_ease(Tween.EASE_IN)
