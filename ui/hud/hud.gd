@@ -19,6 +19,10 @@ var _bag_list: VBoxContainer
 var _bag_stats: Label
 var _hot_slots: Array = []
 var _bag_tab := "item"
+var _char: Panel
+var _char_pic: TextureRect
+var _char_name: Label
+var _char_stats: Label
 var _tab_buttons := {}
 var _quest_label: Label
 var _forms_label: Label
@@ -51,6 +55,7 @@ func _ready() -> void:
 	if DisplayServer.is_touchscreen_available():
 		_build_touch()
 
+	_build_char()
 	_build_bag()
 	_build_hotbar()
 	Game.stats_changed.connect(_refresh_stats)
@@ -284,7 +289,7 @@ func _build_bag() -> void:
 	_bag = Panel.new()
 	_bag.add_theme_stylebox_override("panel", _box(Color(1.0, 0.97, 0.88, 0.98), 18))
 	_bag.set_anchors_preset(Control.PRESET_CENTER)
-	_bag.position = Vector2(-300, -230)
+	_bag.position = Vector2(-150, -230)
 	_bag.size = Vector2(600, 440)
 	_bag.visible = false
 	_root.add_child(_bag)
@@ -320,14 +325,77 @@ func _set_bag_tab(tab: String) -> void:
 	_fill_bag()
 
 
+# ---------- หน้าต่างตัวละคร (เปิดพร้อมกระเป๋า) ----------
+
+func _build_char() -> void:
+	_char = Panel.new()
+	_char.add_theme_stylebox_override("panel", _box(Color(1.0, 0.97, 0.88, 0.98), 18))
+	_char.set_anchors_preset(Control.PRESET_CENTER)
+	_char.position = Vector2(-470, -230)
+	_char.size = Vector2(308, 440)
+	_char.visible = false
+	_root.add_child(_char)
+	var title := _label("ตัวละคร", 30, Color(0.85, 0.4, 0.15), 0)
+	title.position = Vector2(24, 14)
+	_char.add_child(title)
+	# รูปตัวละครร่างปัจจุบัน
+	var frame := Panel.new()
+	frame.add_theme_stylebox_override("panel", _box(Color(0.78, 0.9, 1.0), 14))
+	frame.position = Vector2(24, 66)
+	frame.size = Vector2(124, 150)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_char.add_child(frame)
+	_char_pic = TextureRect.new()
+	_char_pic.position = Vector2(4, 6)
+	_char_pic.size = Vector2(116, 140)
+	_char_pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_char_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_char_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(_char_pic)
+	# ช่องอุปกรณ์สวมใส่ (ยังว่าง)
+	var names := ["อาวุธ", "ชุด", "เครื่องราง"]
+	for i in names.size():
+		var slot := Panel.new()
+		slot.add_theme_stylebox_override("panel", _box(Color(0.93, 0.88, 0.76), 10))
+		slot.position = Vector2(164, 66 + i * 52)
+		slot.size = Vector2(120, 46)
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_char.add_child(slot)
+		var l := _label(names[i], 16, Color(0.6, 0.5, 0.4), 0)
+		l.size = Vector2(120, 46)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		slot.add_child(l)
+	_char_name = _label("", 22, Color(0.3, 0.18, 0.08), 0)
+	_char_name.position = Vector2(24, 226)
+	_char.add_child(_char_name)
+	_char_stats = _label("", 19, Color(0.3, 0.18, 0.08), 0)
+	_char_stats.position = Vector2(24, 262)
+	_char_stats.add_theme_constant_override("line_spacing", 2)
+	_char.add_child(_char_stats)
+
+
+func _fill_char() -> void:
+	var form := Game.current_form()
+	var path: String = form["outfit"].get("sprite", "")
+	_char_pic.texture = load(path) if path != "" and ResourceLoader.exists(path) else null
+	_char_name.text = form["name"]
+	var total_atk := Game.atk_mult() * float(form["atk"])
+	_char_stats.text = "เลเวล  %d / %d\nEXP  %d / %d\nเลือด  %d / %d\nพลังโจมตี  %d\nความเร็ว  %d%%\nร่างที่มี  %d / 14" % [
+		Game.level, Game.MAX_LEVEL, Game.exp, Game.exp_needed(), ceili(Game.hp), int(Game.max_hp),
+		int(round(Player.BASE_ATK * total_atk)), int(round(float(form["speed"]) * 100.0)), Game.unlocked.size()]
+
+
 func toggle_bag() -> void:
 	_bag.visible = not _bag.visible
+	_char.visible = _bag.visible
 	if _bag.visible:
 		_fill_bag()
 
 
 func _fill_bag() -> void:
-	_bag_stats.text = "Lv.%d    โจมตี +%d%%    %d บาท" % [Game.level, int(round((Game.atk_mult() - 1.0) * 100.0)), Game.money]
+	_bag_stats.text = "%d บาท" % Game.money
+	_fill_char()
 	for tab in _tab_buttons:
 		var on: bool = tab == _bag_tab
 		var btn: Button = _tab_buttons[tab]
@@ -360,6 +428,8 @@ func _fill_bag() -> void:
 
 
 func _refresh_hp() -> void:
+	if _char and _char.visible:
+		_fill_char()
 	_hp_bar.max_value = Game.max_hp
 	_hp_bar.value = Game.hp
 	_hp_label.text = "%d / %d" % [ceili(Game.hp), int(Game.max_hp)]
@@ -380,6 +450,8 @@ func _refresh_form() -> void:
 		_form_icon.texture = null
 		_form_swatch.add_theme_stylebox_override("panel", _box(form["outfit"]["shirt"], 34))
 	_form_label.text = form["name"]
+	if _char and _char.visible:
+		_fill_char()
 	for i in 3:
 		_slots[i + 1]["name"].text = form["skills"][i]["name"]
 	var names: Array = []
