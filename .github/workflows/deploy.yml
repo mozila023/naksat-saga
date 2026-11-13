@@ -1,0 +1,67 @@
+name: Build and deploy web game
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+  GODOT_TEMPLATE_DIR: 4.7.2.stable
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
+
+      - name: Download Godot and web export template
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          BASE=https://github.com/godotengine/godot-builds/releases/download/$GODOT_VERSION
+          mkdir -p ~/godot/templates && cd ~/godot
+          curl -sSfL -o godot.zip $BASE/Godot_v${GODOT_VERSION}_linux.x86_64.zip
+          unzip -q godot.zip && mv Godot_v${GODOT_VERSION}_linux.x86_64 godot && rm godot.zip
+          curl -sSfL -o tpl.tpz $BASE/Godot_v${GODOT_VERSION}_export_templates.tpz
+          unzip -q -j tpl.tpz templates/web_nothreads_release.zip templates/web_nothreads_debug.zip templates/version.txt -d templates
+          rm tpl.tpz
+
+      - name: Install Godot
+        run: |
+          sudo install -m 755 ~/godot/godot /usr/local/bin/godot
+          mkdir -p ~/.local/share/godot/export_templates/$GODOT_TEMPLATE_DIR
+          cp ~/godot/templates/* ~/.local/share/godot/export_templates/$GODOT_TEMPLATE_DIR/
+
+      - name: Import assets
+        run: godot --headless --path . --import
+
+      - name: Run play-through test
+        run: godot --headless --path . res://tests/smoke.tscn
+
+      - name: Export web build
+        run: |
+          mkdir -p build/web
+          godot --headless --path . --export-release "Web" build/web/index.html
+          test -s build/web/index.wasm
+          touch build/web/.nojekyll
+
+      - name: Publish to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          force_orphan: true
