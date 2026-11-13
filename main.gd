@@ -67,6 +67,7 @@ func _load_stage(id: String, spawn: String) -> void:
 	player.velocity = Vector2.ZERO
 	player.set_camera_limits(stage.width)
 	Game.banner.emit(stage.title)
+	Sound.play_bgm(id)
 
 
 func on_player_died() -> void:

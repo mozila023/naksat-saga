@@ -144,6 +144,7 @@ func take_hit(dmg: float, dir: float, stun: float) -> void:
 		Fx.spawn(get_parent(), mid, "burst", Vector2(56, 13), Color(1, 1, 1, 0.9), 1, 0.4)
 		Fx.spawn(get_parent(), mid, "star", Vector2(34, 90), Color(1.0, 0.9, 0.4), 1, 0.6)
 		_dying = true
+		Sound.play("enemy_die", 0.08)
 		remove_from_group("enemies")
 		Game.on_enemy_killed(kind, global_position)
 

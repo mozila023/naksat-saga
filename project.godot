@@ -15,6 +15,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 Game="*res://utilities/game.gd"
+Sound="*res://utilities/sound.gd"
 
 [display]
 

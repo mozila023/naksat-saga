@@ -63,6 +63,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _collect() -> void:
+	Sound.play("coin" if kind == "coin" else "item", 0.06)
 	if kind == "coin":
 		Game.add_money(value)
 		Game.spawn_number(global_position + Vector2(0, -30), "+%d บาท" % value, Color(1.0, 0.88, 0.3), 22)

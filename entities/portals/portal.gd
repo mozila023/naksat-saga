@@ -26,6 +26,7 @@ func interact() -> void:
 		if msg != "":
 			Game.start_dialogue([{"who": "", "text": msg}])
 			return
+	Sound.play("portal")
 	Game.main.change_stage(target_stage, target_spawn)
 
 

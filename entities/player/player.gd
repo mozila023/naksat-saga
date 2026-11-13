@@ -149,6 +149,7 @@ func _physics_process(delta: float) -> void:
 				set_collision_mask_value(4, false)
 			else:
 				velocity.y = JUMP_VELOCITY * float(form["jump"])
+				Sound.play("jump", 0.06)
 				Fx.spawn(get_parent(), global_position + Vector2(0, -4), "puff", Vector2(18, 5), Color(1, 1, 1, 0.5), facing, 0.25)
 		if Input.is_action_pressed("attack"):
 			_basic_attack()
@@ -183,6 +184,7 @@ func _physics_process(delta: float) -> void:
 	_was_dashing = _dash_t > 0.0
 
 	if is_on_floor() and not _was_on_floor:
+		Sound.play("land", 0.08, -4.0)
 		_squash = 1.0
 		Fx.spawn(get_parent(), global_position + Vector2(0, -4), "puff", Vector2(16, 5), Color(1, 1, 1, 0.45), facing, 0.25)
 	_was_on_floor = is_on_floor()
@@ -242,6 +244,7 @@ func _melee(w: float, h: float, mult: float, fx_kind: String, color: Color) -> v
 	var heavy := mult >= 1.8
 	var fx_size := Vector2(w, h) * (1.25 if heavy else 1.0)
 	Fx.spawn(get_parent(), global_position + Vector2(facing * 14, -46), fx_kind, fx_size, color, facing, 0.3 if heavy else 0.22)
+	Sound.play("claw" if fx_kind == "claw" else "slash", 0.08)
 	if heavy:
 		# ท่าหนัก: รอยฟันซ้อนอีกชั้น + ลำแสง
 		Fx.spawn(get_parent(), global_position + Vector2(facing * 30, -46), fx_kind, fx_size * 0.75, Color(1, 1, 1), facing, 0.2)
@@ -250,6 +253,7 @@ func _melee(w: float, h: float, mult: float, fx_kind: String, color: Color) -> v
 	if hits > 0:
 		Game.shake(7.0 if heavy else 3.0, 0.18)
 		Game.hit_stop(0.07 if heavy else 0.035)
+		Sound.play("heavy_hit" if heavy else "hit", 0.07)
 
 
 func use_skill(index: int) -> void:
@@ -276,6 +280,7 @@ func use_skill(index: int) -> void:
 			Fx.spawn(get_parent(), global_position + Vector2(0, -36), "puff", Vector2(40, 10), Color(1, 1, 1, 0.7), facing, 0.3)
 			Fx.spawn(get_parent(), global_position + Vector2(-facing * 10, -40), "ring", Vector2(46, 46), color, facing, 0.25)
 			_ghost_t = 0.0
+			Sound.play("dash", 0.05)
 		"aoe":
 			var r := float(spec["radius"])
 			var center := global_position + Vector2(0, -44)
@@ -289,15 +294,18 @@ func use_skill(index: int) -> void:
 				Fx.spawn(get_parent(), center, "star", Vector2(r * 0.6, 160), Color(1.0, 0.85, 0.4), facing, 0.7)
 				Game.spawn_text(center + Vector2(-50, -70), "โฮก!!", Color(1.0, 0.8, 0.3), 52)
 				Game.shake(12.0, 0.45)
+				Sound.play("roar", 0.03)
 			else:
 				# หมุนฟาด: ใบมีดหมุนรอบตัว + ตัวละครหมุน
 				_spin_t = 0.4
+				Sound.play("spin", 0.05)
 				Fx.spawn(get_parent(), center, "spin", Vector2(r, r), color, facing, 0.42)
 				Fx.spawn(get_parent(), center, "ring", Vector2(r, r), color, facing, 0.4)
 				Fx.spawn(get_parent(), global_position + Vector2(0, -4), "puff", Vector2(46, 9), Color(1, 1, 1, 0.6), facing, 0.4)
 				Game.shake(6.0, 0.25)
 			if Game.hit_enemies(rect, _damage(float(spec["dmg"])), global_position.x, float(spec["stun"])) > 0:
 				Game.hit_stop(0.08)
+				Sound.play("heavy_hit", 0.05)
 
 
 func _process_queued(delta: float) -> void:
@@ -318,7 +326,8 @@ func _process_queued(delta: float) -> void:
 func _process_dash_hits() -> void:
 	if _dash_t > 0.0 and _dash_dmg > 0.0:
 		var rect := get_hurt_rect().grow(18.0)
-		Game.hit_enemies(rect, _damage(_dash_dmg), global_position.x - facing * 10.0, 0.0, _dash_hit)
+		if Game.hit_enemies(rect, _damage(_dash_dmg), global_position.x - facing * 10.0, 0.0, _dash_hit) > 0:
+			Sound.play("hit", 0.08)
 
 
 ## ใช้ไอเทมจากช่อง 1-7
@@ -338,6 +347,7 @@ func _drink_potion() -> void:
 		Fx.spawn(get_parent(), global_position, "pillar", Vector2(40, 200), Color(0.4, 1.0, 0.5), 1, 0.45)
 		Fx.spawn(get_parent(), global_position + Vector2(0, -30), "star", Vector2(40, 120), Color(0.6, 1.0, 0.6), 1, 0.7)
 		Game.spawn_number(global_position + Vector2(-20, -100), "+%d" % int(Game.POTION_HEAL), Color(0.5, 1.0, 0.6), 30)
+		Sound.play("potion")
 	elif Game.item_count("potion") <= 0:
 		Game.banner.emit("ยาแดงหมดแล้ว — ซื้อได้ที่ป้าศรีในหมู่บ้าน")
 
@@ -348,6 +358,7 @@ func on_level_up() -> void:
 	Fx.spawn(get_parent(), global_position + Vector2(0, -44), "ring", Vector2(150, 150), Color(1.0, 0.9, 0.4), 1, 0.5)
 	Fx.spawn(get_parent(), global_position + Vector2(0, -30), "star", Vector2(80, 200), Color(1.0, 0.95, 0.5), 1, 1.0)
 	Game.spawn_text(global_position + Vector2(-90, -150), "LEVEL UP!", Color(1.0, 0.9, 0.35), 40)
+	Sound.play("level_up")
 	Game.shake(5.0, 0.3)
 
 
@@ -367,6 +378,7 @@ func cycle_form(step: int) -> void:
 		return
 	var i := ids.find(Game.form_id)
 	Game.set_form(ids[posmod(i + step, ids.size())])
+	Sound.play("transform")
 	# เอฟเฟกต์แปลงร่าง: ตัวขาววาบ + ลำแสง + ควัน + ดาวประกาย
 	var tint: Color = Game.current_form()["outfit"]["shirt"]
 	visual.flash(Color(4, 4, 4), 0.35)
@@ -400,6 +412,7 @@ func take_damage(amount: float, from_x: float) -> void:
 	if dead or _invuln > 0.0 or Game.in_dialogue:
 		return
 	Game.set_hp(Game.hp - amount)
+	Sound.play("hurt", 0.05)
 	Game.spawn_number(global_position + Vector2(0, -80), str(int(amount)), Color(1, 0.35, 0.35))
 	visual.hurt = 0.3
 	visual.flash(Color(2.2, 0.5, 0.5), 0.3)

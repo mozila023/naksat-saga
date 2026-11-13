@@ -81,6 +81,7 @@ func _setup_input() -> void:
 	_add_action("form_next", [KEY_E])
 	_add_action("use_potion", [KEY_F])
 	_add_action("bag", [KEY_I, KEY_B])
+	_add_action("mute", [KEY_M])
 	for i in HOTBAR_SIZE:
 		_add_action("slot_%d" % (i + 1), [KEY_1 + i])
 
@@ -195,6 +196,8 @@ func quest_text() -> String:
 
 func set_quest_stage(stage: int) -> void:
 	quest_stage = stage
+	if stage > 0:
+		Sound.play("quest")
 	quest_changed.emit()
 	save_game()
 
@@ -366,6 +369,7 @@ func start_dialogue(lines: Array, on_done := Callable()) -> void:
 		return
 	in_dialogue = true
 	_dialogue_done = on_done
+	Sound.play("talk", 0.04)
 	dialogue_started.emit(lines)
 
 
@@ -396,6 +400,7 @@ func save_game() -> void:
 	cfg.set_value("game", "money", money)
 	cfg.set_value("game", "items", items)
 	cfg.set_value("game", "hotbar", hotbar)
+	cfg.set_value("audio", "muted", Sound.muted)
 	cfg.save(SAVE_PATH)
 
 
@@ -418,6 +423,7 @@ func load_game() -> void:
 	for id in saved_items:
 		if ITEMS.has(id):
 			items[id] = int(saved_items[id])
+	Sound.set_muted(bool(cfg.get_value("audio", "muted", false)))
 	var saved_bar: Array = cfg.get_value("game", "hotbar", [])
 	for i in mini(saved_bar.size(), HOTBAR_SIZE):
 		hotbar[i] = saved_bar[i] if ITEMS.has(saved_bar[i]) else ""

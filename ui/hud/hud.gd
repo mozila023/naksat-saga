@@ -38,6 +38,7 @@ var _dlg_text: Label
 var _lines: Array = []
 var _line_index := 0
 var _dlg_delay := 0.0
+var _mute_btn: Button
 
 
 func _ready() -> void:
@@ -171,6 +172,17 @@ func _build_status() -> void:
 	_quest_label = _label("", 24, Color(1.0, 0.92, 0.55), 8)
 	_quest_label.position = Vector2(20, 162)
 	_root.add_child(_quest_label)
+	_mute_btn = Button.new()
+	_mute_btn.position = Vector2(376, 16)
+	_mute_btn.size = Vector2(46, 46)
+	_mute_btn.focus_mode = Control.FOCUS_NONE
+	_mute_btn.add_theme_font_size_override("font_size", 22)
+	var mb_style := _box(Color(1.0, 0.96, 0.85, 0.92), 10)
+	for st in ["normal", "hover", "pressed"]:
+		_mute_btn.add_theme_stylebox_override(st, mb_style)
+	_mute_btn.pressed.connect(_toggle_mute)
+	_root.add_child(_mute_btn)
+	_refresh_mute()
 
 
 func _icon(item: String, px: int) -> TextureRect:
@@ -387,10 +399,29 @@ func _fill_char() -> void:
 
 
 func toggle_bag() -> void:
+	Sound.play("ui")
 	_bag.visible = not _bag.visible
 	_char.visible = _bag.visible
 	if _bag.visible:
 		_fill_bag()
+
+
+func _toggle_mute() -> void:
+	Sound.toggle_mute()
+	_refresh_mute()
+	Game.save_game()
+	if not Sound.muted:
+		Sound.play("ui")
+
+
+func _refresh_mute() -> void:
+	if _mute_btn == null:
+		return
+	_mute_btn.text = "✕" if Sound.muted else "♪"
+	var col := Color(0.75, 0.3, 0.3) if Sound.muted else Color(0.3, 0.18, 0.08)
+	for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+		_mute_btn.add_theme_color_override(st, col)
+
 
 
 func _fill_bag() -> void:
@@ -611,6 +642,7 @@ func _advance_dialogue() -> void:
 		_dialogue.visible = false
 		Game.end_dialogue()
 	else:
+		Sound.play("talk", 0.04)
 		_show_line()
 
 
@@ -625,6 +657,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	_dlg_delay = maxf(_dlg_delay - delta, 0.0)
+	if Input.is_action_just_pressed("mute"):
+		_toggle_mute()
 	if Input.is_action_just_pressed("bag") and not Game.in_dialogue:
 		toggle_bag()
 	if not Game.in_dialogue:

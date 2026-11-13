@@ -120,6 +120,7 @@ func _physics_process(delta: float) -> void:
 			if _state_t <= 0.0:
 				var rect := _claw_rect()
 				Fx.spawn(get_parent(), global_position + Vector2(facing * 60, -70), "claw", Vector2(220, 150), Color(1, 0.3, 0.2), facing, 0.3)
+				Sound.play("claw", 0.05, 2.0)
 				if rect.intersects(p.get_hurt_rect()):
 					p.take_damage(16.0, global_position.x)
 				_hold = "swipe_0"
@@ -138,6 +139,7 @@ func _physics_process(delta: float) -> void:
 				Fx.spawn(get_parent(), global_position + Vector2(0, -20), "ring", Vector2(180, 180), Color(1, 0.6, 0.2), 1, 0.4)
 				Fx.spawn(get_parent(), global_position + Vector2(0, -6), "burst", Vector2(120, 14), Color(0.9, 0.85, 0.8, 0.8), 1, 0.45)
 				Game.shake(11.0, 0.3)
+				Sound.play("heavy_hit", 0.04, 3.0)
 				if rect.intersects(p.get_hurt_rect()):
 					p.take_damage(20.0, global_position.x)
 				_set_state("recover", 0.6 if _phase2() else 0.9)
@@ -148,6 +150,7 @@ func _physics_process(delta: float) -> void:
 					Fx.spawn(get_parent(), global_position + Vector2(facing * 70, -90), "ring", Vector2(140 + i * 70, 200), Color(1, 0.75, 0.25), 1, 0.4 + i * 0.15)
 				Game.spawn_text(global_position + Vector2(-60, -230), "โฮก!!", Color(1.0, 0.75, 0.3), 56)
 				Game.shake(10.0, 0.5)
+				Sound.play("roar", 0.03, 2.0)
 				_pulse = 1.0
 				for d in [-1, 1]:
 					var wave := Shockwave.new()
@@ -225,6 +228,7 @@ func take_hit(dmg: float, _dir: float, _stun: float) -> void:
 		Fx.spawn(get_parent(), global_position, "pillar", Vector2(90, 320), Color(1.0, 0.3, 0.2), 1, 0.6)
 		Game.spawn_text(global_position + Vector2(-70, -200), "โกรธแล้ว!", Color(1.0, 0.4, 0.3), 46)
 		Game.shake(10.0, 0.5)
+		Sound.play("roar", 0.02, 2.0)
 	Game.spawn_number(global_position + Vector2(0, -SIZE.y - 20.0), str(int(dmg)), Color(1, 0.95, 0.5))
 	if hp <= 0.0:
 		hp = 0.0
@@ -238,6 +242,7 @@ func take_hit(dmg: float, _dir: float, _stun: float) -> void:
 		Fx.spawn(get_parent(), global_position, "pillar", Vector2(100, 400), Color(1.0, 0.9, 0.5), 1, 0.9)
 		Game.shake(14.0, 0.6)
 		Game.hit_stop(0.25)
+		Sound.play("boss_die")
 		Game.on_boss_defeated("tiger", global_position)
 
 
