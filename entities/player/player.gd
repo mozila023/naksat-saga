@@ -13,6 +13,7 @@ const SWING_TIME := 0.3
 var facing := 1
 var dead := false
 var visual: ChibiVisual
+var name_label: Label
 var camera: Camera2D
 
 var _attack_cd := 0.0
@@ -56,6 +57,20 @@ func _ready() -> void:
 
 	visual = ChibiVisual.new()
 	add_child(visual)
+
+	# ชื่อตัวละครเหนือหัว
+	name_label = Label.new()
+	name_label.custom_minimum_size = Vector2(200, 0)
+	name_label.position = Vector2(-100, -142)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 18)
+	name_label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.85))
+	name_label.add_theme_color_override("font_outline_color", Color(0.12, 0.06, 0.03))
+	name_label.add_theme_constant_override("outline_size", 6)
+	name_label.z_index = 30
+	add_child(name_label)
+	Game.stats_changed.connect(func() -> void: name_label.text = Game.player_name)
+	name_label.text = Game.player_name
 
 	camera = Camera2D.new()
 	camera.position = Vector2(0, -150)

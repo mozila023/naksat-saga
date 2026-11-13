@@ -49,6 +49,9 @@ var max_hp := 100.0
 var hp := 100.0
 var unlocked: Array = ["normal"]
 var form_id := "normal"
+var gender := "boy"      # "boy" หรือ "girl"
+var player_name := ""    # ชื่อตัวละคร ("" = ยังไม่ได้สร้างตัวละคร)
+var _girl_forms := {}
 
 # ขั้นของเควสหลัก
 # 0 ยังไม่รับ / 1 ตีกบ / 2 กลับไปรายงาน / 3 ไปปราบพญาเสือ / 4 กลับไปรายงาน / 5 จบ
@@ -109,8 +112,37 @@ func _add_action(action: String, keys: Array) -> void:
 
 # ---------- ร่าง ----------
 
+## ข้อมูลร่างปัจจุบัน — ถ้าเป็นตัวเอกหญิง จะเปลี่ยนภาพเป็นชุด heroine_ ให้อัตโนมัติ
 func current_form() -> Dictionary:
-	return Forms.get_form(form_id)
+	return form_for(form_id)
+
+
+func form_for(id: String) -> Dictionary:
+	var f := Forms.get_form(id)
+	if gender != "girl":
+		return f
+	if not _girl_forms.has(id):
+		var g: Dictionary = f.duplicate(true)
+		for key in ["sprite", "frames"]:
+			var path: String = g["outfit"].get(key, "")
+			if path != "":
+				g["outfit"][key] = path.replace("/hero_", "/heroine_")
+		_girl_forms[id] = g
+	return _girl_forms[id]
+
+
+# ---------- ตัวละครของผู้เล่น (เพศ + ชื่อ) ----------
+
+func has_profile() -> bool:
+	return player_name != ""
+
+
+func set_profile(new_gender: String, new_name: String) -> void:
+	gender = "girl" if new_gender == "girl" else "boy"
+	player_name = new_name.strip_edges().left(12)
+	save_game()
+	form_changed.emit()
+	stats_changed.emit()
 
 
 func set_form(id: String) -> void:
@@ -470,6 +502,8 @@ func end_dialogue() -> void:
 func save_game() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("game", "unlocked", unlocked)
+	cfg.set_value("game", "gender", gender)
+	cfg.set_value("game", "player_name", player_name)
 	cfg.set_value("game", "quest_stage", quest_stage)
 	cfg.set_value("game", "frog_kills", frog_kills)
 	cfg.set_value("game", "level", level)
@@ -487,6 +521,8 @@ func load_game() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) != OK:
 		return
+	gender = "girl" if cfg.get_value("game", "gender", "boy") == "girl" else "boy"
+	player_name = str(cfg.get_value("game", "player_name", ""))
 	var saved: Array = cfg.get_value("game", "unlocked", ["normal"])
 	unlocked = ["normal"]
 	for id in saved:
@@ -518,6 +554,8 @@ func load_game() -> void:
 
 
 func reset_save() -> void:
+	gender = "boy"
+	player_name = ""
 	unlocked = ["normal"]
 	form_id = "normal"
 	quest_stage = 0

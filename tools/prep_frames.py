@@ -1,7 +1,8 @@
 """ตัดชีตท่าทาง (หลายเฟรมเรียงแนวนอนบนพื้นเขียว/ชมพู) ออกเป็นเฟรมเดี่ยว พื้นใส ขนาดผืนผ้าใบเท่ากัน เท้าอยู่กึ่งกลางล่าง
 
 ใช้: python3 tools/prep_frames.py <โฟลเดอร์ภาพต้นฉบับ> assets/art/frames [ร่าง ...]
-    (ไม่ใส่ชื่อร่าง = ทำ normal กับ tiger)
+    (ไม่ใส่ชื่อร่าง = ทำ normal กับ tiger; ตัวเอกหญิงใช้ชื่อขึ้นต้นด้วย heroine_ เช่น heroine_rat
+     อ่าน naksat_heroine_rat_*.png แล้วได้ heroine_rat_*.png)
 """
 import sys
 import numpy as np
@@ -99,7 +100,8 @@ for form in FORMS:
     for sheet in ["poses", "walk", "attack"]:  # poses ก่อน เพื่อใช้ท่ายืนเป็นตัวกำหนดขนาด
         names, ref, mode = SHEETS[sheet]
         count = max(len(names), EXTRA.get(form, {}).get(sheet, 0))
-        frames = split_frames(key_out(Image.open(f"{SRC}/naksat_hero_{form}_{sheet}.png")), count)[: len(names)]
+        src_name = f"naksat_{form}" if form.startswith("heroine_") else f"naksat_hero_{form}"
+        frames = split_frames(key_out(Image.open(f"{SRC}/{src_name}_{sheet}.png")), count)[: len(names)]
         if ref is not None:
             sheet_scale = STAND_H / frames[ref].shape[0]
             if sheet == "poses":
@@ -112,5 +114,6 @@ for form in FORMS:
             im = im.resize((max(1, round(im.width * sheet_scale)), max(1, round(im.height * sheet_scale))), Image.LANCZOS)
             canvas = Image.new("RGBA", CANVAS, (0, 0, 0, 0))
             canvas.alpha_composite(im, (round(CANVAS[0] / 2 - ax * sheet_scale), CANVAS[1] - im.height))
-            canvas.save(f"{OUT}/hero_{form}_{name}.png")
+            out_name = form if form.startswith("heroine_") else f"hero_{form}"
+            canvas.save(f"{OUT}/{out_name}_{name}.png")
         print(form, sheet, [f.shape[:2] for f in frames], "scale %.3f" % sheet_scale)

@@ -17,6 +17,8 @@ var hud: Hud
 var _fade: ColorRect
 var _changing := false
 var title: TitleScreen
+var creator: CharacterCreate
+var story: StoryCutscene
 
 
 func _ready() -> void:
@@ -54,6 +56,25 @@ func _ready() -> void:
 
 
 func _on_title_started() -> void:
+	if Game.has_profile():
+		_begin_play()
+		return
+	# ยังไม่มีตัวละคร: เลือกเพศ -> ตั้งชื่อ -> ฉากเล่าเรื่อง
+	creator = CharacterCreate.new()
+	creator.finished.connect(_on_character_created)
+	add_child(creator)
+
+
+func _on_character_created(new_gender: String, new_name: String) -> void:
+	Game.set_profile(new_gender, new_name)
+	story = StoryCutscene.new()
+	story.gender = Game.gender
+	story.player_name = Game.player_name
+	story.finished.connect(_begin_play)
+	add_child(story)
+
+
+func _begin_play() -> void:
 	Game.in_title = false
 	hud.visible = true
 	player.visible = true
@@ -62,6 +83,8 @@ func _on_title_started() -> void:
 
 ## ข้ามหน้าปก (ใช้ในการทดสอบอัตโนมัติ)
 func start_game() -> void:
+	if not Game.has_profile():
+		Game.set_profile("boy", "ทดสอบ")
 	if title and is_instance_valid(title):
 		title.begin()
 
@@ -105,7 +128,9 @@ func on_player_died() -> void:
 
 
 func restart_game() -> void:
+	# ลบเซฟแล้วเริ่มใหม่ตั้งแต่หน้าปก (สร้างตัวละครใหม่)
 	Game.reset_save()
-	player.revive()
-	_changing = false
-	change_stage("village", "start")
+	Game.player = null
+	Game.boss = null
+	Game.in_dialogue = false
+	get_tree().reload_current_scene()

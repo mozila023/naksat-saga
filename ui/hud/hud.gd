@@ -446,7 +446,7 @@ func _fill_char() -> void:
 	var form := Game.current_form()
 	var path: String = form["outfit"].get("sprite", "")
 	_char_pic.texture = load(path) if path != "" and ResourceLoader.exists(path) else null
-	_char_name.text = form["name"]
+	_char_name.text = "%s  ·  %s" % [Game.player_name, form["short"]] if Game.player_name != "" else form["name"]
 	var total_atk := Game.atk_mult() * float(form["atk"])
 	_char_stats.text = "เลเวล  %d / %d\nEXP  %d / %d\nเลือด  %d / %d\nพลังโจมตี  %d\nความเร็ว  %d%%\nร่างที่มี  %d / 14" % [
 		Game.level, Game.MAX_LEVEL, Game.exp, Game.exp_needed(), ceili(Game.hp), int(Game.max_hp),
