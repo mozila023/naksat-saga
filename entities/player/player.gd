@@ -353,23 +353,26 @@ func _process_dash_hits() -> void:
 func use_item(id: String) -> void:
 	if Game.ITEMS[id].has("slot"):
 		Game.equip(id)
-	elif id == "potion":
+	elif Game.ITEMS[id].has("heal"):
 		if Game.hp >= Game.max_hp:
 			Game.banner.emit("เลือดเต็มอยู่แล้ว")
 		else:
-			_drink_potion()
+			_drink_potion(id)
 	else:
 		Game.banner.emit("%s ใช้ไม่ได้ — เอาไปขายให้ลุงหมูได้" % Game.ITEMS[id]["name"])
 
 
-func _drink_potion() -> void:
-	if Game.use_potion():
+func _drink_potion(id := "potion") -> void:
+	# ปุ่ม F: ใช้ยาแดงก่อน ถ้าหมดใช้ขวดใหญ่
+	if id == "potion" and Game.item_count("potion") <= 0 and Game.item_count("big_potion") > 0:
+		id = "big_potion"
+	if Game.use_potion(id):
 		visual.flash(Color(0.6, 2.4, 0.8), 0.35)
 		Fx.spawn(get_parent(), global_position, "pillar", Vector2(40, 200), Color(0.4, 1.0, 0.5), 1, 0.45)
 		Fx.spawn(get_parent(), global_position + Vector2(0, -30), "star", Vector2(40, 120), Color(0.6, 1.0, 0.6), 1, 0.7)
-		Game.spawn_number(global_position + Vector2(-20, -100), "+%d" % int(Game.POTION_HEAL), Color(0.5, 1.0, 0.6), 30)
+		Game.spawn_number(global_position + Vector2(-20, -100), "+%d" % int(Game.ITEMS[id]["heal"]), Color(0.5, 1.0, 0.6), 30)
 		Sound.play("potion")
-	elif Game.item_count("potion") <= 0:
+	elif Game.item_count(id) <= 0:
 		Game.banner.emit("ยาแดงหมดแล้ว — ซื้อได้ที่ป้าศรีในหมู่บ้าน")
 
 

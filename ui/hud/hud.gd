@@ -43,6 +43,9 @@ var _mute_btn: Button
 var _craft: Panel
 var _craft_list: VBoxContainer
 var _craft_money: Label
+var _shop: Panel
+var _shop_list: VBoxContainer
+var _shop_money: Label
 
 
 func _ready() -> void:
@@ -65,6 +68,11 @@ func _ready() -> void:
 	_build_hotbar()
 	_build_craft()
 	Game.crafting_opened.connect(open_craft)
+	var shop: Array = _make_window("ร้านป้าศรี", close_shop)
+	_shop = shop[0]
+	_shop_list = shop[1]
+	_shop_money = shop[2]
+	Game.shop_opened.connect(open_shop)
 	Game.stats_changed.connect(_refresh_stats)
 	_refresh_stats()
 	Game.hp_changed.connect(_refresh_hp)
@@ -521,10 +529,118 @@ func _build_craft() -> void:
 	scroll.add_child(_craft_list)
 
 
+## หน้าต่างรายการ (ใช้กับร้านค้า): คืนค่า [แผง, รายการ, ป้ายเงิน]
+func _make_window(title_text: String, on_close: Callable) -> Array:
+	var panel := Panel.new()
+	panel.add_theme_stylebox_override("panel", _box(Color(1.0, 0.97, 0.88, 0.98), 18))
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-340, -280)
+	panel.size = Vector2(680, 540)
+	panel.visible = false
+	_root.add_child(panel)
+	var title := _label(title_text, 30, Color(0.85, 0.4, 0.15), 0)
+	title.position = Vector2(28, 14)
+	panel.add_child(title)
+	var money := _label("", 18, Color(0.3, 0.18, 0.08), 0)
+	money.position = Vector2(300, 22)
+	money.size = Vector2(290, 26)
+	money.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	panel.add_child(money)
+	var close := Button.new()
+	close.text = "✕"
+	close.focus_mode = Control.FOCUS_NONE
+	close.position = Vector2(620, 14)
+	close.size = Vector2(44, 40)
+	close.add_theme_font_size_override("font_size", 20)
+	close.pressed.connect(on_close)
+	panel.add_child(close)
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(20, 66)
+	scroll.size = Vector2(640, 456)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.custom_minimum_size = Vector2(620, 0)
+	list.add_theme_constant_override("separation", 8)
+	scroll.add_child(list)
+	return [panel, list, money]
+
+
+## ปุ่มสีส้มแบบเดียวกันทั้งเกม
+func _action_button(text: String, enabled: bool, on_press: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(80, 46)
+	b.add_theme_font_size_override("font_size", 20)
+	b.disabled = not enabled
+	b.add_theme_stylebox_override("normal", _box(Color(1.0, 0.82, 0.45), 10))
+	b.add_theme_stylebox_override("hover", _box(Color(1.0, 0.9, 0.6), 10))
+	b.add_theme_stylebox_override("pressed", _box(Color(0.95, 0.7, 0.35), 10))
+	b.add_theme_stylebox_override("disabled", _box(Color(0.88, 0.85, 0.78), 10))
+	for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+		b.add_theme_color_override(st, Color(0.35, 0.2, 0.08))
+	b.add_theme_color_override("font_disabled_color", Color(0.65, 0.6, 0.55))
+	b.pressed.connect(on_press)
+	return b
+
+
+# ---------- ร้านป้าศรี ----------
+
+func open_shop() -> void:
+	Sound.play("ui")
+	_bag.visible = false
+	_char.visible = false
+	_craft.visible = false
+	_shop.visible = true
+	_fill_shop()
+
+
+func close_shop() -> void:
+	_shop.visible = false
+
+
+func _fill_shop() -> void:
+	_shop_money.text = "%d บาท" % Game.money
+	for child in _shop_list.get_children():
+		_shop_list.remove_child(child)
+		child.queue_free()
+	for id in Game.SHOP:
+		var info: Dictionary = Game.ITEMS[id]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		row.custom_minimum_size = Vector2(620, 56)
+		row.add_child(_icon(info["icon"], 44))
+		var box := VBoxContainer.new()
+		box.custom_minimum_size = Vector2(470, 0)
+		box.add_theme_constant_override("separation", 0)
+		box.add_child(_label("%s   (มี %d)" % [info["name"], Game.item_count(id)], 20, Color(0.3, 0.18, 0.08), 0))
+		var bits: Array = ["%d บาท" % int(info["buy"])]
+		if info.has("heal"):
+			bits.append("ฟื้นเลือด %d" % int(info["heal"]))
+		if info.has("atk"):
+			bits.append("โจมตี +%d" % int(info["atk"]))
+		if info.has("hp"):
+			bits.append("เลือด +%d" % int(info["hp"]))
+		if info.has("speed"):
+			bits.append("เร็ว +%d%%" % int(round(float(info["speed"]) * 100.0)))
+		box.add_child(_label("  ".join(bits), 15, Color(0.45, 0.35, 0.25), 0))
+		row.add_child(box)
+		row.add_child(_action_button("ซื้อ", Game.money >= int(info["buy"]), _do_buy.bind(id)))
+		_shop_list.add_child(row)
+
+
+func _do_buy(id: String) -> void:
+	if Game.buy_item(id):
+		Sound.play("coin")
+		_fill_shop()
+
+
 func open_craft() -> void:
 	Sound.play("ui")
 	_bag.visible = false
 	_char.visible = false
+	_shop.visible = false
 	_craft.visible = true
 	_fill_craft()
 
@@ -870,13 +986,15 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("mute"):
 		_toggle_mute()
 	if Input.is_action_just_pressed("bag") and not Game.in_dialogue:
-		if _craft.visible:
+		if _craft.visible or _shop.visible:
 			close_craft()
+			close_shop()
 		else:
 			toggle_bag()
 	# เดินออกห่างจากช่าง = ปิดหน้าคราฟ
-	if _craft.visible and Game.player and (Input.is_action_pressed("move_left") or Input.is_action_pressed("move_right")):
+	if (_craft.visible or _shop.visible) and Game.player and (Input.is_action_pressed("move_left") or Input.is_action_pressed("move_right")):
 		close_craft()
+		close_shop()
 	if not Game.in_dialogue:
 		for i in Game.HOTBAR_SIZE:
 			if Input.is_action_just_pressed("slot_%d" % (i + 1)):

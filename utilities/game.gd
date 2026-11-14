@@ -9,6 +9,7 @@ signal banner(text: String)
 signal dialogue_started(lines: Array)
 signal dialogue_finished
 signal crafting_opened  # คุยกับช่างตีเหล็ก: HUD เปิดหน้าคราฟของ
+signal shop_opened  # คุยกับป้าศรี: HUD เปิดหน้าร้าน
 
 const SAVE_PATH := "user://save.cfg"
 const FROGS_NEEDED := 5
@@ -18,19 +19,22 @@ const FROGS_NEEDED := 5
 # buy = ราคาซื้อจากป้าศรี (0 = ไม่มีขาย), sell = ราคาที่ลุงหมูรับซื้อ (0 = ไม่รับซื้อ)
 # (ของที่คราฟได้และชิ้นส่วนนักษัตร ถูกเพิ่มเข้ามาตอนเริ่มเกม จาก Crafting.generated_items())
 var ITEMS := {
-	"potion": {"name": "ยาแดง", "desc": "ฟื้นเลือด 50 (กด F เพื่อดื่ม)", "icon": "potion", "tab": "item", "buy": 20, "sell": 0},
+	"potion": {"name": "ยาแดง", "desc": "ฟื้นเลือด 50 (กด F เพื่อดื่ม)", "icon": "potion", "tab": "item", "heal": 50.0, "buy": 20, "sell": 0},
+	"big_potion": {"name": "ยาแดงขวดใหญ่", "desc": "", "icon": "big_potion", "tab": "item", "heal": 150.0, "buy": 55, "sell": 0},
 	"frog_leg": {"name": "ขากบ", "desc": "ได้จากกบนา ขายให้ลุงหมูได้", "icon": "frog_leg", "tab": "etc", "buy": 0, "sell": 6},
 	"mushroom_cap": {"name": "หมวกเห็ดพิษ", "desc": "ได้จากเห็ดพิษ ขายให้ลุงหมูได้", "icon": "mushroom_cap", "tab": "etc", "buy": 0, "sell": 12},
 	# อุปกรณ์สวมใส่: slot = ช่องที่ใส่, atk = พลังโจมตีเพิ่ม, hp = เลือดสูงสุดเพิ่ม, speed = ความเร็วเพิ่ม (0.08 = 8%)
-	"wood_sword": {"name": "ดาบไม้", "desc": "", "icon": "wood_sword", "tab": "equip", "slot": "weapon", "atk": 3.0, "buy": 0, "sell": 15},
-	"straw_hat": {"name": "งอบ", "desc": "", "icon": "straw_hat", "tab": "equip", "slot": "head", "hp": 20.0, "buy": 0, "sell": 12},
-	"pha_khao_ma": {"name": "ผ้าขาวม้า", "desc": "", "icon": "pha_khao_ma", "tab": "equip", "slot": "body", "hp": 30.0, "buy": 0, "sell": 15},
-	"sandals": {"name": "รองเท้าหนัง", "desc": "", "icon": "sandals", "tab": "equip", "slot": "feet", "speed": 0.08, "buy": 0, "sell": 12},
-	"amulet": {"name": "เหรียญนำโชค", "desc": "", "icon": "amulet", "tab": "equip", "slot": "charm", "atk": 2.0, "hp": 15.0, "buy": 0, "sell": 40},
+	"wood_sword": {"name": "ดาบไม้", "desc": "", "icon": "wood_sword", "tab": "equip", "slot": "weapon", "atk": 3.0, "buy": 40, "sell": 15},
+	"straw_hat": {"name": "งอบ", "desc": "", "icon": "straw_hat", "tab": "equip", "slot": "head", "hp": 20.0, "buy": 35, "sell": 12},
+	"pha_khao_ma": {"name": "ผ้าขาวม้า", "desc": "", "icon": "pha_khao_ma", "tab": "equip", "slot": "body", "hp": 30.0, "buy": 45, "sell": 15},
+	"sandals": {"name": "รองเท้าหนัง", "desc": "", "icon": "sandals", "tab": "equip", "slot": "feet", "speed": 0.08, "buy": 40, "sell": 12},
+	"amulet": {"name": "เหรียญนำโชค", "desc": "", "icon": "amulet", "tab": "equip", "slot": "charm", "atk": 2.0, "hp": 15.0, "buy": 150, "sell": 40},
 	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 0},
 	"mist_horn": {"name": "เขาปิศาจหมอก", "desc": "", "icon": "mist_horn", "tab": "etc", "buy": 0, "sell": 0},
 }
 const POTION_HEAL := 50.0
+# ของในร้านป้าศรี (เรียงตามที่แสดง)
+const SHOP := ["potion", "big_potion", "wood_sword", "straw_hat", "pha_khao_ma", "sandals", "amulet"]
 # ช่องอุปกรณ์สวมใส่ในหน้าตัวละคร: [รหัสช่อง, ชื่อที่แสดง]
 const EQUIP_SLOTS := [["weapon", "อาวุธ"], ["head", "หมวก"], ["body", "ชุด"], ["feet", "รองเท้า"], ["charm", "เครื่องราง"]]
 const MAX_LEVEL := 150  # เลเวลสูงสุด
@@ -542,13 +546,17 @@ func use_hotbar(index: int) -> void:
 	player.use_item(id)
 
 
-## ดื่มยาแดง คืนค่า true ถ้าดื่มได้
-func use_potion() -> bool:
-	if item_count("potion") <= 0 or hp >= max_hp or hp <= 0.0:
+## ดื่มยา (ยาแดง / ยาแดงขวดใหญ่) คืนค่า true ถ้าดื่มได้
+func use_potion(id := "potion") -> bool:
+	if item_count(id) <= 0 or hp >= max_hp or hp <= 0.0:
 		return false
-	add_item("potion", -1)
-	set_hp(hp + POTION_HEAL)
+	add_item(id, -1)
+	set_hp(hp + float(ITEMS[id].get("heal", POTION_HEAL)))
 	return true
+
+
+func open_shop() -> void:
+	shop_opened.emit()
 
 
 ## ซื้อไอเทม 1 ชิ้น คืนค่า true ถ้าเงินพอ

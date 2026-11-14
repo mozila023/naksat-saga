@@ -80,17 +80,14 @@ func _talk_smith() -> void:
 
 
 func _talk_auntie() -> void:
-	# ร้านยาป้าศรี: คุย 1 ครั้ง = ซื้อยาแดง 1 ขวด
-	var price := int(Game.ITEMS["potion"]["buy"])
-	if Game.buy_item("potion"):
+	# ร้านของชำป้าศรี: ขายยาและของใช้ ทักทายครั้งแรกแล้วเปิดหน้าร้าน
+	if not Game.has_meta("auntie_met"):
+		Game.set_meta("auntie_met", true)
 		Game.start_dialogue([
-			{"who": "ป้าศรี", "text": "ยาแดงขวดละ %d บาทจ้ะ นี่จ้ะ 1 ขวด (ตอนนี้มี %d ขวด เหลือเงิน %d บาท) กด F เพื่อดื่ม ตอนเลือดเหลือน้อยนะลูก" % [price, Game.item_count("potion"), Game.money]},
-		])
+			{"who": "ป้าศรี", "text": "มาจ้ะ ๆ ร้านป้ามีทั้งยา และของใช้ เลือกดูตามสบายเลยลูก"},
+		], func() -> void: Game.open_shop())
 	else:
-		Game.start_dialogue([
-			{"who": "ป้าศรี", "text": "ป้าขายยาแดง ขวดละ %d บาทจ้ะ แต่หนูมีแค่ %d บาท ไปตีมอนสเตอร์ ที่ทุ่งนา เก็บเหรียญมาก่อนนะ" % [price, Game.money]},
-			{"who": "ป้าศรี", "text": "ของที่มอนสเตอร์ทำตก เอาไปขาย ให้ลุงหมูได้ กด I เพื่อเปิดกระเป๋าดูของ"},
-		])
+		Game.open_shop()
 
 
 func _talk_uncle() -> void:
