@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cw8syikx14wyp"
-path="res://.godot/imported/hero_rabbit_walk_5.png-014f5d8c1ce6798104984b52f972eada.ctex"
+uid="uid://bgrockmwqifng"
+path="res://.godot/imported/item_zpart_rabbit_tail.png-6c57d0d6420ae28d173ab5a35eda1b27.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/frames/hero_rabbit_walk_5.png"
-dest_files=["res://.godot/imported/hero_rabbit_walk_5.png-014f5d8c1ce6798104984b52f972eada.ctex"]
+source_file="res://assets/art/items/item_zpart_rabbit_tail.png"
+dest_files=["res://.godot/imported/item_zpart_rabbit_tail.png-6c57d0d6420ae28d173ab5a35eda1b27.ctex"]
 
 [params]
 
