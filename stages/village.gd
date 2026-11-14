@@ -51,11 +51,32 @@ func build() -> void:
 
 	# ---- ชาวบ้าน ----
 	add_npc(1150.0, "ป้าศรี", {"shirt": Color(0.95, 0.6, 0.7), "pants": Color(0.5, 0.25, 0.4), "accent": Color(1, 1, 1), "hair": Color(0.25, 0.18, 0.15), "hat": "bun", "sprite": "res://assets/art/npc_auntie.png"}, _talk_auntie)
+	add_npc(1760.0, "ลุงเหล็ก", {"shirt": Color(0.45, 0.35, 0.3), "pants": Color(0.25, 0.2, 0.18), "accent": Color(0.9, 0.5, 0.2), "hair": Color(0.15, 0.12, 0.1), "hat": "", "sprite": "res://assets/art/npc_smith.png"}, _talk_smith)
 	add_npc(4360.0, "ลุงหมู", {"shirt": Color(0.6, 0.8, 0.5), "pants": Color(0.35, 0.3, 0.2), "accent": Color(0.4, 0.3, 0.2), "hair": Color(0.2, 0.2, 0.2), "hat": "straw", "sprite": "res://assets/art/npc_uncle.png"}, _talk_uncle)
 
 	# ---- ประตู ----
+	add_portal(70.0, "ไปหมู่บ้านถัดไป", "village", "start", _next_village_lock, Color(1.0, 0.6, 0.9))
 	add_portal(2050.0, "บ้านผู้ใหญ่บ้าน", "chief_house", "entrance", Callable(), Color(1.0, 0.82, 0.4))
 	add_portal(6240.0, "ไปทุ่งนา", "rice_field", "from_village", Callable(), Color(0.6, 1.0, 0.5))
+
+
+## ทางไปหมู่บ้านถัดไป: ต้องมีใบเบิกทาง (เควสสุดท้ายของหมู่บ้าน)
+func _next_village_lock() -> String:
+	if Game.travel_permit <= Game.village:
+		return "ทางไปหมู่บ้านถัดไป ต้องมี ใบเบิกทาง จากผู้ใหญ่บ้านก่อน (ทำเควสของหมู่บ้านนี้ให้ครบ)"
+	return "หมู่บ้านถัดไป กำลังสร้างอยู่ เร็ว ๆ นี้!"
+
+
+func _talk_smith() -> void:
+	# ลุงเหล็ก ช่างตีเหล็ก: เปิดหน้าคราฟของ
+	if not Game.has_meta("smith_met"):
+		Game.set_meta("smith_met", true)
+		Game.start_dialogue([
+			{"who": "ลุงเหล็ก", "text": "ฮ่า ๆ มาให้ลุงตีของหรือ เอาของที่ได้จากมอนสเตอร์มา ลุงตีให้ได้ทุกอย่าง ฝีมือดีวันไหน ก็ได้ของดีวันนั้น!"},
+			{"who": "ลุงเหล็ก", "text": "ถ้าได้ ชิ้นส่วนนักษัตร มา ลุงตีเป็น ชุดเซ็ทนักษัตร ให้ได้ ใส่ครบชุดแล้วจะมีพลังพิเศษ"},
+		], func() -> void: Game.open_crafting())
+	else:
+		Game.open_crafting()
 
 
 func _talk_auntie() -> void:

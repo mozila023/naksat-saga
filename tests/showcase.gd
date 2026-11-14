@@ -84,7 +84,7 @@ func _ready() -> void:
 			await snap("%s_skill%d" % [form, i + 1])
 			await frames(70)
 	# บอส
-	Game.quest_stage = 3
+	Game.quest_index = 3
 	Game.max_hp = 100000.0
 	Game.set_hp(100000.0)
 	main.change_stage("demon_lair", "entrance")

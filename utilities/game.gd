@@ -8,6 +8,7 @@ signal stats_changed  # เลเวล / EXP / เงิน / ไอเทม �
 signal banner(text: String)
 signal dialogue_started(lines: Array)
 signal dialogue_finished
+signal crafting_opened  # คุยกับช่างตีเหล็ก: HUD เปิดหน้าคราฟของ
 
 const SAVE_PATH := "user://save.cfg"
 const FROGS_NEEDED := 5
@@ -15,7 +16,8 @@ const FROGS_NEEDED := 5
 # ---------- ไอเทม ----------
 # tab = แท็บในกระเป๋า (equip อุปกรณ์สวมใส่ / item ไอเทม / etc ทั่วไป)
 # buy = ราคาซื้อจากป้าศรี (0 = ไม่มีขาย), sell = ราคาที่ลุงหมูรับซื้อ (0 = ไม่รับซื้อ)
-const ITEMS := {
+# (ของที่คราฟได้และชิ้นส่วนนักษัตร ถูกเพิ่มเข้ามาตอนเริ่มเกม จาก Crafting.generated_items())
+var ITEMS := {
 	"potion": {"name": "ยาแดง", "desc": "ฟื้นเลือด 50 (กด F เพื่อดื่ม)", "icon": "potion", "tab": "item", "buy": 20, "sell": 0},
 	"frog_leg": {"name": "ขากบ", "desc": "ได้จากกบนา ขายให้ลุงหมูได้", "icon": "frog_leg", "tab": "etc", "buy": 0, "sell": 6},
 	"mushroom_cap": {"name": "หมวกเห็ดพิษ", "desc": "ได้จากเห็ดพิษ ขายให้ลุงหมูได้", "icon": "mushroom_cap", "tab": "etc", "buy": 0, "sell": 12},
@@ -26,7 +28,7 @@ const ITEMS := {
 	"sandals": {"name": "รองเท้าหนัง", "desc": "", "icon": "sandals", "tab": "equip", "slot": "feet", "speed": 0.08, "buy": 0, "sell": 12},
 	"amulet": {"name": "เหรียญนำโชค", "desc": "", "icon": "amulet", "tab": "equip", "slot": "charm", "atk": 2.0, "hp": 15.0, "buy": 0, "sell": 40},
 	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 0},
-	"mist_horn": {"name": "เขาปิศาจหมอก", "desc": "", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 60},
+	"mist_horn": {"name": "เขาปิศาจหมอก", "desc": "", "icon": "mist_horn", "tab": "etc", "buy": 0, "sell": 0},
 }
 const POTION_HEAL := 50.0
 # ช่องอุปกรณ์สวมใส่ในหน้าตัวละคร: [รหัสช่อง, ชื่อที่แสดง]
@@ -55,11 +57,18 @@ var gender := "boy"      # "boy" หรือ "girl"
 var player_name := ""    # ชื่อตัวละคร ("" = ยังไม่ได้สร้างตัวละคร)
 var _girl_forms := {}
 
-# ขั้นของเควสหลัก
-# 0 ยังไม่รับ / 1 ตีกบ / 2 กลับไปรายงาน / 3 ไปปราบพญาเสือ / 4 กลับไปรายงาน / 5 จบ
-var quest_stage := 0  # 0 ยังไม่คุย / 1 ตีกบ / 2 กลับไปรายงาน / 3 ช่วงนักษัตร (ประลองทุก 10 เลเวล)
+# เควสหลัก (ดู Quests.LIST): เควสลำดับที่เท่าไร / รับแล้วหรือยัง / ความคืบหน้า (นับตัวที่กำจัด หรือของที่คราฟ)
+var quest_index := 0
+var quest_accepted := false
+var quest_progress := 0
 var active_trial := ""  # นักษัตรที่กำลังประลองอยู่ ("" = ไม่มี)
-var frog_kills := 0
+
+# หมู่บ้าน: หมู่บ้านที่ N มีเลเวลตัน N x 20 (ไปหมู่บ้านถัดไปได้เมื่อได้ใบเบิกทางจากเควส)
+var village := 1
+var travel_permit := 1  # หมู่บ้านไกลสุดที่มีใบเบิกทางแล้ว
+var zodiac_gifts: Array = []  # นักษัตรที่มอบชิ้นส่วนให้แล้ว (ตัวละ 1 ชุด)
+var craft_fails := {}  # ของเซ็ทนักษัตร -> จำนวนครั้งที่ตีพัง (ยิ่งพังบ่อย ครั้งต่อไปยิ่งง่าย)
+const VILLAGE_CAP := 20
 
 # เลเวล: ทุกเลเวล เลือดสูงสุด +15 และพลังโจมตี +10%
 var level := 1
@@ -79,6 +88,7 @@ var _dialogue_end_frame := -100
 
 func _ready() -> void:
 	_setup_input()
+	ITEMS.merge(Crafting.generated_items())
 	load_game()
 
 
@@ -231,19 +241,91 @@ func spawn_number(pos: Vector2, text: String, color: Color, font_size := 26) -> 
 # ---------- เควส ----------
 
 func quest_text() -> String:
-	match quest_stage:
-		0: return "เควส: ไปพบผู้ใหญ่บ้านที่บ้านผู้ใหญ่บ้าน"
-		1: return "เควส: กำจัดกบนาที่ทุ่งนา %d/%d" % [frog_kills, FROGS_NEEDED]
-		2: return "เควส: กลับไปรายงานผู้ใหญ่บ้าน"
 	if active_trial != "":
 		return "เควส: ประลองกับ %s" % Zodiac.display_name(Zodiac.get_data(active_trial))
-	var z := Zodiac.available(level, unlocked)
-	if not z.is_empty():
+	var q := current_quest()
+	if q.is_empty():
+		return "เควส: หมู่บ้านถัดไป เร็ว ๆ นี้"
+	if not quest_accepted:
+		return "เควส: ไปพบผู้ใหญ่บ้านที่บ้านผู้ใหญ่บ้าน"
+	if q["type"] == "travel":
+		return "เควส: เดินทางไปหมู่บ้านถัดไป (ประตูซ้ายสุดของหมู่บ้าน)"
+	if Quests.is_done(q):
+		return "เควส: กลับไปส่งเควสกับผู้ใหญ่บ้าน"
+	if q["type"] == "zodiac":
+		var z := Zodiac.get_data(q["target"])
+		if level < int(z["level"]):
+			return "เควส: ฝึกให้ถึง Lv.%d เพื่อพบ %s" % [int(z["level"]), Zodiac.display_name(z)]
 		return "เควส: ไปประลองกับ %s ที่บ้านผู้ใหญ่บ้าน" % Zodiac.display_name(z)
-	var next := Zodiac.upcoming(level, unlocked)
-	if not next.is_empty():
-		return "เควส: ฝึกให้ถึง Lv.%d เพื่อพบ %s" % [int(next["level"]), Zodiac.display_name(next)]
-	return "เควส: นักษัตรตัวต่อไป เร็ว ๆ นี้"
+	var prog := Quests.progress_text(q)
+	return "เควส: %s%s" % [q["title"], " " + prog if prog != "" else ""]
+
+
+func current_quest() -> Dictionary:
+	return Quests.get_quest(quest_index)
+
+
+## รับเควสปัจจุบัน
+func accept_quest() -> void:
+	var q := current_quest()
+	if q.is_empty() or quest_accepted:
+		return
+	quest_accepted = true
+	quest_progress = 0
+	if q["type"] == "travel":
+		travel_permit = maxi(travel_permit, int(q["target"]))
+	Sound.play("quest")
+	banner.emit("รับเควส: %s" % q["title"])
+	quest_changed.emit()
+	save_game()
+
+
+## ส่งเควสที่ทำครบแล้ว: ให้รางวัล แล้วขยับไปเควสถัดไป คืนค่า true ถ้าส่งได้
+func turn_in_quest() -> bool:
+	var q := current_quest()
+	if q.is_empty() or not quest_accepted or not Quests.is_done(q) or q["type"] == "travel":
+		return false
+	if q["type"] == "collect":
+		add_item(q["target"], -int(q["n"]))
+	var r: Dictionary = q.get("reward", {})
+	var parts: Array = []
+	if r.has("money"):
+		add_money(int(r["money"]))
+		parts.append("%d บาท" % int(r["money"]))
+	for id in r.get("items", {}):
+		add_item(id, int(r["items"][id]))
+		parts.append("%s x%d" % [ITEMS[id]["name"], int(r["items"][id])])
+	if r.has("exp"):
+		parts.append("%d EXP" % int(r["exp"]))
+	quest_index += 1
+	quest_accepted = false
+	quest_progress = 0
+	Sound.play("quest")
+	banner.emit("ส่งเควสสำเร็จ!%s" % ("\n" + "  ".join(parts) if not parts.is_empty() else ""))
+	if r.has("exp"):
+		add_exp(int(r["exp"]))
+	quest_changed.emit()
+	save_game()
+	return true
+
+
+## นับความคืบหน้าเควส (ชนิด kill / craft) และบอกเมื่อครบ
+func _quest_count(kind: String, target := "") -> void:
+	var q := current_quest()
+	if q.is_empty() or not quest_accepted or q["type"] != kind or (target != "" and q.get("target", "") != target):
+		return
+	if Quests.is_done(q):
+		return
+	quest_progress += 1
+	if Quests.is_done(q):
+		banner.emit("%s ครบแล้ว! กลับไปหาผู้ใหญ่บ้าน" % q["title"])
+	quest_changed.emit()
+	save_game()
+
+
+## เลเวลตันของหมู่บ้านที่อยู่ตอนนี้
+func level_cap() -> int:
+	return mini(village * VILLAGE_CAP, MAX_LEVEL)
 
 
 ## เริ่มประลองกับนักษัตร: พาไปลานประลองของตัวนั้น
@@ -254,14 +336,6 @@ func start_trial(id: String) -> void:
 	active_trial = id
 	quest_changed.emit()
 	main.change_stage(z["arena"], "entrance")
-
-
-func set_quest_stage(stage: int) -> void:
-	quest_stage = stage
-	if stage > 0:
-		Sound.play("quest")
-	quest_changed.emit()
-	save_game()
 
 
 # ---------- เลเวล ----------
@@ -280,12 +354,37 @@ func _apply_level() -> void:
 
 # ---------- อุปกรณ์สวมใส่ ----------
 
-## ผลรวมค่าพลังจากอุปกรณ์ที่สวมอยู่ (stat = "atk" / "hp" / "speed")
+## ผลรวมค่าพลังจากอุปกรณ์ที่สวมอยู่ (stat = "atk" / "hp" / "speed") รวมโบนัสเซ็ทนักษัตร
 func equip_bonus(stat: String) -> float:
 	var total := 0.0
 	for slot in equipped:
 		total += float(ITEMS[equipped[slot]].get(stat, 0.0))
-	return total
+	return total + set_effect(stat)
+
+
+## จำนวนชิ้นของเซ็ทนักษัตรแต่ละตัวที่สวมอยู่ {"rat": 3, ...}
+func set_counts() -> Dictionary:
+	var counts := {}
+	for slot in equipped:
+		var z: String = ITEMS[equipped[slot]].get("set", "")
+		if z != "":
+			counts[z] = int(counts.get(z, 0)) + 1
+	return counts
+
+
+## ค่าความสามารถพิเศษจากเซ็ท (speed, hp, atk_mult, dodge, cd_mult, dmg_taken, no_knock, crit)
+## cd_mult / dmg_taken เป็นตัวคูณ (ไม่มีเซ็ท = 1) ตัวอื่นเป็นค่าบวกเพิ่ม (ไม่มี = 0)
+func set_effect(stat: String) -> float:
+	var mult_stat := stat in ["cd_mult", "dmg_taken"]
+	var value := 1.0 if mult_stat else 0.0
+	var counts := set_counts()
+	for z in counts:
+		var s: Dictionary = Crafting.SETS.get(z, {})
+		for need in [3, 5]:
+			if int(counts[z]) >= need and s.get("bonus%d" % need, {}).has(stat):
+				var v := float(s["bonus%d" % need][stat])
+				value = value * v if mult_stat else value + v
+	return value
 
 
 ## สวมอุปกรณ์จากกระเป๋า (ของเดิมในช่องนั้นกลับเข้ากระเป๋า) คืนค่า true ถ้าสวมได้
@@ -322,22 +421,30 @@ func _after_equip_change() -> void:
 
 
 func add_exp(amount: int) -> void:
-	if level >= MAX_LEVEL:
-		exp = 0
+	var cap := level_cap()
+	if level >= cap:
+		# เลเวลตันของหมู่บ้านนี้: EXP เต็มหลอดค้างไว้ จนกว่าจะไปหมู่บ้านถัดไป
+		exp = 0 if level >= MAX_LEVEL else exp_needed()
+		stats_changed.emit()
 		return
 	exp += amount
 	var leveled := false
-	while level < MAX_LEVEL and exp >= exp_needed():
+	while level < cap and exp >= exp_needed():
 		exp -= exp_needed()
 		level += 1
 		leveled = true
 	if level >= MAX_LEVEL:
 		exp = 0
+	elif level >= cap:
+		exp = exp_needed()
 	if leveled:
 		quest_changed.emit()  # เลเวลถึงแล้วเควสนักษัตรอาจเปลี่ยน
 		_apply_level()
 		set_hp(max_hp)
-		banner.emit("เลเวลอัป! Lv.%d\nเลือดสูงสุด %d  พลังโจมตี +%d%%" % [level, int(max_hp), int(round((atk_mult() - 1.0) * 100.0))])
+		if level >= cap and level < MAX_LEVEL:
+			banner.emit("เลเวลตันแล้ว! Lv.%d\nทำเควสให้ครบ แล้วเดินทางไปหมู่บ้านถัดไป" % level)
+		else:
+			banner.emit("เลเวลอัป! Lv.%d\nเลือดสูงสุด %d  พลังโจมตี +%d%%" % [level, int(max_hp), int(round((atk_mult() - 1.0) * 100.0))])
 		if player and is_instance_valid(player):
 			player.on_level_up()
 	stats_changed.emit()
@@ -360,8 +467,55 @@ func add_item(id: String, amount := 1) -> void:
 	items[id] = maxi(item_count(id) + amount, 0)
 	if items[id] == 0:
 		items.erase(id)
+	var q := current_quest()
+	if quest_accepted and q.get("type", "") == "collect" and q["target"] == id:
+		quest_changed.emit()  # เควสหาของ: อัปเดตตัวนับ
 	stats_changed.emit()
 	save_game()
+
+
+# ---------- คราฟของ (ช่างตีเหล็ก) ----------
+
+func open_crafting() -> void:
+	crafting_opened.emit()
+
+
+## ของพอคราฟสูตรนี้ไหม (recipe = รายการจาก Crafting.recipe_list())
+func can_craft(recipe: Dictionary) -> bool:
+	if money < int(recipe["cost"]):
+		return false
+	for id in recipe["mats"]:
+		if item_count(id) < int(recipe["mats"][id]):
+			return false
+	return true
+
+
+## คราฟของ คืนค่ารหัสไอเทมที่ได้ ("" = ของไม่พอ, "FAIL" = ตีของเซ็ทพัง)
+## ของทั่วไปสุ่มคุณภาพ ของเซ็ทนักษัตรมีโอกาสพัง (เสียของกับเงิน แต่ชิ้นส่วนนักษัตรยังอยู่)
+func craft(recipe: Dictionary, force_success := false) -> String:
+	if not can_craft(recipe):
+		return ""
+	money -= int(recipe["cost"])
+	var zodiac: String = recipe["zodiac"]
+	var success := zodiac == "" or force_success or randf() < Crafting.set_chance(int(craft_fails.get(recipe["key"], 0)))
+	for id in recipe["mats"]:
+		if not success and str(id).begins_with("zpart_"):
+			continue  # ตีพัง: ชิ้นส่วนนักษัตรไม่หาย
+		items[id] = item_count(id) - int(recipe["mats"][id])
+		if items[id] <= 0:
+			items.erase(id)
+	if not success:
+		craft_fails[recipe["key"]] = int(craft_fails.get(recipe["key"], 0)) + 1
+		stats_changed.emit()
+		save_game()
+		return "FAIL"
+	craft_fails.erase(recipe["key"])
+	var out: String = recipe["key"] if recipe["zodiac"] != "" else "%s__q%d" % [recipe["key"], Crafting.roll_quality()]
+	items[out] = item_count(out) + 1
+	_quest_count("craft")
+	stats_changed.emit()
+	save_game()
+	return out
 
 
 ## ใส่ไอเทมลงช่อง 1-7 (id = "" คือเอาออก) ไอเทมเดียวกันอยู่ได้ช่องเดียว
@@ -407,12 +561,12 @@ func buy_item(id: String) -> bool:
 	return true
 
 
-## ขายของดรอปทั้งหมดที่ขายได้ คืนค่าเงินที่ได้
+## ขายของดรอปทั้งหมดที่ขายได้ (เฉพาะแท็บทั่วไป ไม่ขายอุปกรณ์) คืนค่าเงินที่ได้
 func sell_materials() -> int:
 	var total := 0
 	for id in items.keys():
 		var price := int(ITEMS[id]["sell"])
-		if price > 0:
+		if price > 0 and ITEMS[id].get("tab", "") == "etc":
 			total += price * item_count(id)
 			items.erase(id)
 	if total > 0:
@@ -440,14 +594,7 @@ func give_rewards(kind: String, pos: Vector2, exp_mult := 1.0) -> void:
 func on_enemy_killed(kind: String, pos := Vector2.INF, exp_mult := 1.0) -> void:
 	if pos != Vector2.INF:
 		give_rewards(kind, pos, exp_mult)
-	if quest_stage == 1 and kind == "frog":
-		frog_kills += 1
-		if frog_kills >= FROGS_NEEDED:
-			banner.emit("กำจัดกบนาครบแล้ว! กลับไปหาผู้ใหญ่บ้าน")
-			set_quest_stage(2)
-		else:
-			quest_changed.emit()
-			save_game()
+	_quest_count("kill", kind)
 
 
 func on_boss_defeated(id: String, pos := Vector2.INF) -> void:
@@ -460,8 +607,10 @@ func on_boss_defeated(id: String, pos := Vector2.INF) -> void:
 		# บอสปิศาจ: ไม่ได้ร่างใหม่ แต่ได้ EXP และของเยอะ กลับมาตีซ้ำได้
 		var demon: Dictionary = ZodiacBoss.DEMONS.get(id, {})
 		banner.emit("ปราบ %s ได้แล้ว!" % demon.get("name", id))
+		_quest_count("kill", id)
 		save_game()
 		return
+	_give_zodiac_parts(id)
 	var form := Forms.get_form(id)
 	if unlock_form(id):
 		banner.emit("ผ่านการประลอง!\nได้ %s — กด Q / E เพื่อสลับร่าง" % form["name"])
@@ -470,6 +619,16 @@ func on_boss_defeated(id: String, pos := Vector2.INF) -> void:
 	start_dialogue([{"who": z["year"], "text": z["win"]}])
 	quest_changed.emit()
 	save_game()
+
+
+## นักษัตรมอบชิ้นส่วนให้ 1 ชุด (เขี้ยว หัว หนัง เท้า หาง) เอาไปให้ช่างตีเป็นชุดเซ็ทนักษัตร
+func _give_zodiac_parts(id: String) -> void:
+	if id in zodiac_gifts or not Crafting.SETS.has(id):
+		return
+	zodiac_gifts.append(id)
+	for p in Crafting.PARTS:
+		var pid := Crafting.part_id(id, p[0])
+		items[pid] = item_count(pid) + 1
 
 
 func player_died() -> void:
@@ -511,8 +670,13 @@ func save_game() -> void:
 	cfg.set_value("game", "unlocked", unlocked)
 	cfg.set_value("game", "gender", gender)
 	cfg.set_value("game", "player_name", player_name)
-	cfg.set_value("game", "quest_stage", quest_stage)
-	cfg.set_value("game", "frog_kills", frog_kills)
+	cfg.set_value("game", "quest_index", quest_index)
+	cfg.set_value("game", "quest_accepted", quest_accepted)
+	cfg.set_value("game", "quest_progress", quest_progress)
+	cfg.set_value("game", "village", village)
+	cfg.set_value("game", "travel_permit", travel_permit)
+	cfg.set_value("game", "zodiac_gifts", zodiac_gifts)
+	cfg.set_value("game", "craft_fails", craft_fails)
 	cfg.set_value("game", "level", level)
 	cfg.set_value("game", "exp", exp)
 	cfg.set_value("game", "money", money)
@@ -535,8 +699,20 @@ func load_game() -> void:
 	for id in saved:
 		if id != "normal" and Forms.get_form(id)["id"] == id:
 			unlocked.append(id)
-	quest_stage = mini(int(cfg.get_value("game", "quest_stage", 0)), 3)  # เซฟเก่า (ระบบเสือเดิม 3-5) = ช่วงนักษัตร
-	frog_kills = int(cfg.get_value("game", "frog_kills", 0))
+	if cfg.has_section_key("game", "quest_index"):
+		quest_index = int(cfg.get_value("game", "quest_index", 0))
+		quest_accepted = bool(cfg.get_value("game", "quest_accepted", false))
+		quest_progress = int(cfg.get_value("game", "quest_progress", 0))
+	else:
+		# เซฟระบบเควสเก่า: 0 ยังไม่คุย / 1 ตีกบ / 2 รายงาน / 3+ ช่วงนักษัตร
+		var old := int(cfg.get_value("game", "quest_stage", 0))
+		quest_index = 0 if old < 3 else 1
+		quest_accepted = old in [1, 2]
+		quest_progress = int(cfg.get_value("game", "frog_kills", 0)) if old == 1 else (5 if old == 2 else 0)
+	village = maxi(int(cfg.get_value("game", "village", 1)), 1)
+	travel_permit = maxi(int(cfg.get_value("game", "travel_permit", 1)), village)
+	zodiac_gifts = cfg.get_value("game", "zodiac_gifts", [])
+	craft_fails = cfg.get_value("game", "craft_fails", {})
 	level = clampi(int(cfg.get_value("game", "level", 1)), 1, MAX_LEVEL)
 	exp = int(cfg.get_value("game", "exp", 0))
 	money = int(cfg.get_value("game", "money", 0))
@@ -556,6 +732,9 @@ func load_game() -> void:
 	var saved_bar: Array = cfg.get_value("game", "hotbar", [])
 	for i in mini(saved_bar.size(), HOTBAR_SIZE):
 		hotbar[i] = saved_bar[i] if ITEMS.has(saved_bar[i]) else ""
+	# เซฟเก่าที่ชนะนักษัตรไปก่อนมีระบบคราฟ: ให้ชิ้นส่วนย้อนหลัง
+	for id in unlocked:
+		_give_zodiac_parts(id)
 	_apply_level()
 	hp = max_hp
 
@@ -565,9 +744,14 @@ func reset_save() -> void:
 	player_name = ""
 	unlocked = ["normal"]
 	form_id = "normal"
-	quest_stage = 0
+	quest_index = 0
+	quest_accepted = false
+	quest_progress = 0
+	village = 1
+	travel_permit = 1
+	zodiac_gifts = []
+	craft_fails = {}
 	active_trial = ""
-	frog_kills = 0
 	level = 1
 	exp = 0
 	money = 0

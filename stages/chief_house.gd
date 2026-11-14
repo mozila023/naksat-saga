@@ -12,44 +12,59 @@ func build() -> void:
 
 	add_portal(100.0, "ออกจากบ้าน", "village", "from_house", Callable(), Color(0.6, 1.0, 0.5))
 	add_npc(700.0, CHIEF, {"shirt": Color(0.3, 0.45, 0.75), "hat": "straw", "sprite": "res://assets/art/npc_chief.png"}, _talk_chief,
-		func() -> bool: return Game.quest_stage in [0, 2])
+		func() -> bool: return _has_news())
 
-	# วิญญาณนักษัตรที่พร้อมประลอง (ถ้ามี) ปรากฏหน้าหิ้งบูชา
+	# วิญญาณนักษัตรที่พร้อมประลอง (ถ้ามี) ปรากฏหน้าหิ้งบูชา (หลังรับเควสแรกแล้ว)
 	var z := Zodiac.available(Game.level, Game.unlocked)
-	if Game.quest_stage >= 3 and not z.is_empty():
+	if (Game.quest_index > 0 or Game.quest_accepted) and not z.is_empty():
 		var spirit := ZodiacSpirit.new()
 		spirit.zodiac = z
 		spirit.position = Vector2(1560, GROUND_Y)
 		add_child(spirit)
 
 
+## มีเควสใหม่ให้รับ หรือมีเควสที่ทำครบรอส่ง (ขึ้นเครื่องหมาย ! เหนือหัว)
+func _has_news() -> bool:
+	var q := Game.current_quest()
+	return not q.is_empty() and (not Game.quest_accepted or (q["type"] != "travel" and Quests.is_done(q)))
+
+
 func _talk_chief() -> void:
-	match Game.quest_stage:
-		0:
-			Game.start_dialogue([
-				{"who": CHIEF, "text": "มาแล้วหรือ %s บ้านลุงเป็น หอบูชา 12 นักษัตร ผู้พิทักษ์หมู่บ้านเรามาแต่โบราณ" % Game.player_name},
-				{"who": CHIEF, "text": "นักษัตรจะยืมพลังแปลงร่าง ให้คนที่ผ่านการประลองเท่านั้น ทุกครั้งที่หลานเก่งขึ้น 10 เลเวล นักษัตรตัวถัดไป จะปรากฏที่หิ้งบูชานี้"},
-				{"who": CHIEF, "text": "เริ่มจากฝึกฝีมือก่อน ไปกำจัด กบนา 5 ตัว ที่ทุ่งนา ทางขวาของหมู่บ้าน"},
-			], func() -> void:
-				Game.set_quest_stage(1)
-				Game.banner.emit("รับเควส: กำจัดกบนา 5 ตัว"))
-		1:
-			Game.start_dialogue([{"who": CHIEF, "text": "กบนาอยู่ที่ทุ่งนา ทางขวาสุดของหมู่บ้าน (กำจัดแล้ว %d/%d ตัว)" % [Game.frog_kills, Game.FROGS_NEEDED]}])
-		2:
-			var first: Dictionary = Zodiac.LIST[0]
-			Game.start_dialogue([
-				{"who": CHIEF, "text": "เก่งมาก! ทีนี้ฝึกต่อที่ทุ่งนา ให้ถึง Lv.%d แล้ว %s นักษัตรตัวแรก จะมาทดสอบหลานที่นี่" % [int(first["level"]), Zodiac.display_name(first)]},
-			], func() -> void:
-				Game.set_quest_stage(3))
-		_:
-			var z := Zodiac.available(Game.level, Game.unlocked)
-			var text := ""
-			if not z.is_empty():
-				text = "%s มารออยู่ที่หิ้งบูชาแล้ว ไปคุยกับท่านได้เลย" % Zodiac.display_name(z)
-			else:
-				var next := Zodiac.upcoming(Game.level, Game.unlocked)
-				if next.is_empty():
-					text = "นักษัตรตัวต่อไป ยังไม่ปรากฏตัว รออีกสักพักนะหลาน"
-				else:
-					text = "ฝึกต่อให้ถึง Lv.%d แล้ว %s จะมาทดสอบหลาน" % [int(next["level"]), Zodiac.display_name(next)]
-			Game.start_dialogue([{"who": CHIEF, "text": text}])
+	var q := Game.current_quest()
+	if q.is_empty():
+		Game.start_dialogue([{"who": CHIEF, "text": "หมู่บ้านถัดไป ยังไปไม่ได้ในตอนนี้ รออีกสักพักนะหลาน"}])
+		return
+	if not Game.quest_accepted:
+		_give(q)
+		return
+	if q["type"] != "travel" and Quests.is_done(q):
+		# ส่งเควส แล้วให้เควสถัดไปต่อเลย
+		Game.start_dialogue([{"who": CHIEF, "text": "เก่งมาก %s! นี่คือรางวัลของหลาน" % Game.player_name}], func() -> void:
+			Game.turn_in_quest()
+			var next := Game.current_quest()
+			if not next.is_empty():
+				_give.call_deferred(next))
+		return
+	Game.start_dialogue([{"who": CHIEF, "text": _hint(q)}])
+
+
+func _give(q: Dictionary) -> void:
+	var lines: Array = []
+	for t in q["give"]:
+		lines.append({"who": CHIEF, "text": str(t).replace("{name}", Game.player_name)})
+	Game.start_dialogue(lines, func() -> void: Game.accept_quest())
+
+
+## คำใบ้ระหว่างทำเควส
+func _hint(q: Dictionary) -> String:
+	match q["type"]:
+		"kill", "collect", "craft":
+			return "%s (ตอนนี้ %s)" % [q["title"], Quests.progress_text(q)]
+		"zodiac":
+			var z := Zodiac.get_data(q["target"])
+			if Game.level < int(z["level"]):
+				return "ฝึกต่อให้ถึง Lv.%d แล้ว %s จะมาทดสอบหลานที่หิ้งบูชา" % [int(z["level"]), Zodiac.display_name(z)]
+			return "%s มารออยู่ที่หิ้งบูชาแล้ว ไปคุยกับท่านได้เลย" % Zodiac.display_name(z)
+		"travel":
+			return "ใบเบิกทางอยู่กับหลานแล้ว ออกไปทางประตูซ้ายสุดของหมู่บ้านได้เลย"
+	return ""

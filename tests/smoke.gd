@@ -35,6 +35,7 @@ func tap(action: String) -> void:
 
 
 func talk_through() -> void:
+	await frames(20)  # เผื่อเพิ่งปิดบทสนทนาก่อนหน้า (กันกดคุยซ้ำทันที)
 	await tap("interact")
 	var guard := 0
 	while Game.in_dialogue and guard < 30:
@@ -129,10 +130,8 @@ func _ready() -> void:
 	await shot("03_dialogue")
 	Game.end_dialogue()
 	main.hud._dialogue.visible = false
-	Game.quest_stage = 0
 	await frames(20)
-	await talk_through()
-	check(Game.quest_stage == 1, "quest 1 accepted (got %d)" % Game.quest_stage)
+	check(Game.quest_index == 0 and Game.quest_accepted, "first quest accepted")
 	p.global_position.x = 100.0
 	await frames(20)
 	await tap("interact")
@@ -158,13 +157,13 @@ func _ready() -> void:
 	Game.end_dialogue()
 	main.hud._dialogue.visible = false
 	await kill_all(2)
-	check(Game.quest_stage == 2, "frog quest complete (stage %d, kills %d)" % [Game.quest_stage, Game.frog_kills])
+	check(Quests.is_done(Game.current_quest()), "frog quest complete (%s)" % Game.quest_text())
 	check(Game.level > 1, "kills give EXP and level up (Lv.%d)" % Game.level)
 	check(Game.max_hp > 100.0, "level raises max HP")
 	var keep_level := Game.level
 	var keep_exp := Game.exp
 	Game.add_exp(100000000)
-	check(Game.level == Game.MAX_LEVEL, "level is capped at %d" % Game.MAX_LEVEL)
+	check(Game.level == 20, "village 1 caps the level at 20 (Lv.%d)" % Game.level)
 	Game.level = keep_level
 	Game.exp = keep_exp
 	Game._apply_level()
@@ -231,12 +230,20 @@ func _ready() -> void:
 	await frames(400)
 	check(get_tree().get_nodes_in_group("enemies").size() >= 10, "monsters respawn")
 
+	# ---- ส่งเควสกบ -> ได้เควสหาขากบ -> ส่ง -> ได้เควสเห็ด ----
 	main.change_stage("chief_house", "entrance")
 	await frames(60)
 	p.global_position.x = 700.0
 	await frames(20)
+	var money_q := Game.money
 	await talk_through()
-	check(Game.quest_stage == 3, "zodiac phase starts (got %d)" % Game.quest_stage)
+	check(Game.quest_index == 1 and Game.quest_accepted, "frog quest turned in, next quest given (%d)" % Game.quest_index)
+	check(Game.money > money_q, "quest reward money")
+	Game.add_item("frog_leg", 5)
+	var legs_before := Game.item_count("frog_leg")
+	await talk_through()
+	check(Game.quest_index == 2 and Game.quest_accepted, "collect quest turned in (%d)" % Game.quest_index)
+	check(Game.item_count("frog_leg") == legs_before - 5, "collect quest takes the items (%d left)" % Game.item_count("frog_leg"))
 	main.change_stage("village", "from_house")
 	await frames(60)
 	p.global_position.x = 4360.0
@@ -249,8 +256,15 @@ func _ready() -> void:
 	var potions_before := Game.item_count("potion")
 	await talk_through()
 	check(Game.item_count("potion") == potions_before + 1, "auntie sells a potion")
+	p.global_position.x = 70.0
+	await frames(20)
+	await tap("interact")
+	await frames(30)
+	check(Game.in_dialogue and main.stage_id == "village", "next village needs the travel permit")
+	Game.end_dialogue()
+	main.hud._dialogue.visible = false
 
-	# ---- นักษัตรตัวแรก: ชวด (หนู) Lv.10 ----
+	# ---- เห็ดพิษ + ถ้ำยักษ์ยังเข้าไม่ได้ ----
 	main.change_stage("rice_field", "from_cave")
 	await frames(60)
 	p.global_position.x = 9400.0
@@ -261,6 +275,16 @@ func _ready() -> void:
 	check(Game.in_dialogue and main.stage_id == "rice_field", "demon lair sealed below Lv.15")
 	Game.end_dialogue()
 	main.hud._dialogue.visible = false
+	await kill_all(2)
+	check(Quests.is_done(Game.current_quest()), "mushroom quest done (%s)" % Game.quest_text())
+	main.change_stage("chief_house", "entrance")
+	await frames(60)
+	p.global_position.x = 700.0
+	await frames(20)
+	await talk_through()
+	check(Game.quest_index == 3, "rat quest given (%d)" % Game.quest_index)
+
+	# ---- นักษัตรตัวแรก: ชวด (หนู) Lv.10 ----
 	check(Game.quest_text().contains("Lv.10"), "quest asks to reach Lv.10 (%s)" % Game.quest_text())
 	while Game.level < 10:
 		Game.add_exp(Game.exp_needed())
@@ -289,6 +313,7 @@ func _ready() -> void:
 	await shot("06b_rat_phase2")
 	await kill_all(1)
 	check("rat" in Game.unlocked and Game.active_trial == "", "rat form unlocked")
+	check(Game.item_count(Crafting.part_id("rat", "fang")) == 1 and Game.item_count(Crafting.part_id("rat", "tail")) == 1, "rat gives its set parts")
 	await frames(20)
 	Game.end_dialogue()
 	main.hud._dialogue.visible = false
@@ -300,47 +325,70 @@ func _ready() -> void:
 		await frames(40)
 	await shot("06c_rat_form")
 	await tap("form_prev")
+	Game._apply_level()
+	Game.set_hp(Game.max_hp)
 
-	# ---- ขาล (เสือ) Lv.30: ข้ามฉลู (ยังไม่พร้อม) ----
-	while Game.level < 30:
-		Game.add_exp(Game.exp_needed())
-	check(Game.quest_text().contains("ขาล"), "Lv.30 quest points to the tiger (%s)" % Game.quest_text())
+	# ---- ส่งเควสชวด -> เควสคราฟ -> ช่างตีเหล็ก ----
 	main.change_stage("chief_house", "entrance")
 	await frames(60)
-	spirits = get_tree().get_nodes_in_group("interactables").filter(func(n: Node) -> bool: return n is ZodiacSpirit)
-	check(spirits.size() == 1 and spirits[0].zodiac["id"] == "tiger", "tiger spirit appears at Lv.30")
-	p.global_position.x = 1500.0
-	await frames(30)
+	p.global_position.x = 700.0
+	await frames(20)
 	await talk_through()
+	check(Game.quest_index == 4 and Game.current_quest()["type"] == "craft", "craft quest given (%d)" % Game.quest_index)
+	main.change_stage("village", "from_house")
 	await frames(60)
-	check(main.stage_id == "trial_hall", "tiger trial happens in the trial hall")
-	check(Game.boss != null and Game.boss.zodiac_id == "tiger", "tiger boss present")
-	Game.max_hp = 100000.0
-	Game.set_hp(100000.0)
-	p.global_position.x = 900.0
-	await frames(150)
-	await shot("07_boss_fight")
-	await frames(200)
-	await shot("07b_boss_fight_2")
-	var hp_before: float = Game.boss.hp if Game.boss else 0.0
-	Game.hit_enemies(Rect2(-1000, -2000, 20000, 4000), 400.0, 0.0)
-	check(Game.boss != null and Game.boss.hp < hp_before, "boss takes damage")
-	await frames(300)
-	await shot("08_boss_phase2")
-	await kill_all(1)
-	check("tiger" in Game.unlocked, "tiger form unlocked")
-	await frames(30)
-	await shot("09_boss_defeated")
-	Game.end_dialogue()
-	main.hud._dialogue.visible = false
-	await frames(30)
-	Game.set_form("tiger")
-	for i in 3:
-		p.use_skill(i)
-		await frames(40)
-	await shot("10_tiger_form")
+	p.global_position.x = 1760.0
+	await frames(20)
+	await talk_through()
+	await frames(10)
+	check(main.hud._craft.visible, "blacksmith opens the crafting window")
+	Game.money = 2000
+	Game.add_item("frog_leg", 30)
+	Game.add_item("mushroom_cap", 30)
+	main.hud._fill_craft()
+	await shot("05c_craft")
+	var general: Dictionary = Crafting.recipe_list(Game.items)[2]
+	var made := Game.craft(general)
+	check(made.begins_with("frog_vest__q") and Game.item_count(made) == 1, "crafting makes a quality item (%s)" % made)
+	var rolls := {}
+	for i in 400:
+		rolls[Crafting.roll_quality()] = int(rolls.get(Crafting.roll_quality(), 0)) + 1
+	check(rolls.has(1) and rolls.has(2) and rolls.has(3), "quality rolls vary (%s)" % str(rolls))
+	Game.money = 99999
+	for id in ["frog_leg", "mushroom_cap", "mist_horn"]:
+		Game.add_item(id, 200)
+	var set_recipe: Dictionary = Crafting.recipe_list(Game.items).filter(func(r: Dictionary) -> bool: return r["zodiac"] == "rat")[0]
+	var tries := 0
+	while Game.item_count(set_recipe["key"]) == 0 and tries < 10:
+		var res := Game.craft(set_recipe)
+		check(res != "FAIL" or Game.item_count(Crafting.part_id("rat", "fang")) == 1, "failed set craft keeps the zodiac part")
+		tries += 1
+	check(Game.item_count(set_recipe["key"]) == 1, "set piece eventually forged (%d tries)" % tries)
+	for r in Crafting.recipe_list(Game.items):
+		if r["zodiac"] == "rat":
+			Game.craft(r, true)
+	for slot in ["weapon", "head", "body", "feet", "charm"]:
+		Game.equip(Crafting.set_item_id("rat", slot))
+	check(int(Game.set_counts().get("rat", 0)) == 5, "full rat set equipped")
+	check(Game.set_effect("dodge") > 0.0 and Game.set_effect("cd_mult") < 1.0, "rat set gives its abilities")
+	main.hud._fill_craft()
+	await frames(10)
+	await shot("05d_craft_done")
+	main.hud.close_craft()
+	main.hud.toggle_bag()
+	main.hud._set_bag_tab("equip")
+	await shot("05e_rat_set")
+	main.hud.toggle_bag()
 
-	# ---- ถ้ำยักษ์หมอกทมิฬ (บอสปิศาจ ตีซ้ำได้) ----
+	# ---- ส่งเควสคราฟ -> ยักษ์หมอกทมิฬ (Lv.15) ----
+	main.change_stage("chief_house", "entrance")
+	await frames(60)
+	p.global_position.x = 700.0
+	await frames(20)
+	await talk_through()
+	check(Game.quest_index == 5, "demon quest given (%d)" % Game.quest_index)
+	while Game.level < 15:
+		Game.add_exp(Game.exp_needed())
 	main.change_stage("rice_field", "from_cave")
 	await frames(60)
 	p.global_position.x = 9400.0
@@ -354,21 +402,83 @@ func _ready() -> void:
 	p.global_position.x = 1000.0
 	await frames(200)
 	await shot("10b_demon_fight")
-	var exp_before := Game.exp
-	var lv_before := Game.level
 	await kill_all(1)
 	await frames(30)
-	check(Game.level > lv_before or Game.exp > exp_before, "demon gives EXP")
+	check(Quests.is_done(Game.current_quest()), "demon quest done (%s)" % Game.quest_text())
 	await shot("10c_demon_defeated")
+	Game._apply_level()
+	Game.set_hp(Game.max_hp)
+
+	# ---- เควสหมวกเห็ด -> ฉลู (Lv.20) ----
+	main.change_stage("chief_house", "entrance")
+	await frames(60)
+	p.global_position.x = 700.0
+	await frames(20)
+	await talk_through()
+	check(Game.quest_index == 6, "mushroom cap quest given (%d)" % Game.quest_index)
+	Game.add_item("mushroom_cap", 6)
+	await talk_through()
+	check(Game.quest_index == 7 and Game.current_quest()["target"] == "ox", "ox quest given (%d)" % Game.quest_index)
+	while Game.level < 20:
+		Game.add_exp(Game.exp_needed())
+	Game.add_exp(5000)
+	check(Game.level == 20, "level stays at the village cap")
+	main.change_stage("chief_house", "entrance")
+	await frames(60)
+	spirits = get_tree().get_nodes_in_group("interactables").filter(func(n: Node) -> bool: return n is ZodiacSpirit)
+	check(spirits.size() == 1 and spirits[0].zodiac["id"] == "ox", "ox spirit appears at Lv.20")
+	p.global_position.x = 1500.0
+	await frames(30)
+	await talk_through()
+	await frames(60)
+	check(main.stage_id == "trial_hall" and Game.boss != null and Game.boss.zodiac_id == "ox", "ox trial in the trial hall")
+	Game.max_hp = 100000.0
+	Game.set_hp(100000.0)
+	p.global_position.x = 900.0
+	await frames(150)
+	await shot("07_boss_fight")
+	await frames(200)
+	await shot("07b_boss_fight_2")
+	var hp_before: float = Game.boss.hp if Game.boss else 0.0
+	Game.hit_enemies(Rect2(-1000, -2000, 20000, 4000), 400.0, 0.0)
+	check(Game.boss != null and Game.boss.hp < hp_before, "boss takes damage")
+	await frames(300)
+	await shot("08_boss_phase2")
+	await kill_all(1)
+	check("ox" in Game.unlocked, "ox form unlocked")
+	await frames(30)
+	await shot("09_boss_defeated")
+	Game.end_dialogue()
+	main.hud._dialogue.visible = false
+	await frames(30)
+	Game.set_form("ox")
+	for i in 3:
+		p.use_skill(i)
+		await frames(40)
+	await shot("10_ox_form")
+	check(Zodiac.available(Game.level, Game.unlocked).is_empty(), "no more zodiacs in village 1")
+
+	# ---- ส่งเควสฉลู -> ใบเบิกทาง ----
+	main.change_stage("chief_house", "entrance")
+	await frames(60)
+	p.global_position.x = 700.0
+	await frames(20)
+	await talk_through()
+	check(Game.current_quest()["type"] == "travel" and Game.travel_permit == 2, "travel permit to village 2")
 
 	Game.max_hp = 100.0
 	Game.set_hp(1.0)
 	p._invuln = 0.0
+	Game.equipped.erase("feet")
+	Game.equipped.erase("body")
 	p.take_damage(50.0, 0.0)
+	if not p.dead:
+		p._invuln = 0.0
+		p.take_damage(50.0, 0.0)
 	check(p.dead, "player can die")
 	await frames(240)
 	check(not p.dead and main.stage_id == "village", "respawn in village")
-	check(Game.quest_text().contains("Lv.40") or Game.quest_text().contains("เร็ว ๆ นี้"), "next quest after the tiger (%s)" % Game.quest_text())
+	check(Game.quest_text().contains("หมู่บ้านถัดไป"), "quest points to the next village (%s)" % Game.quest_text())
 	await shot("11_end")
 
 	Game.reset_save()

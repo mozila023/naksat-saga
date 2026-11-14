@@ -241,7 +241,11 @@ func _tick_timers(delta: float) -> void:
 # ---------- โจมตี ----------
 
 func _damage(mult: float) -> float:
-	return (BASE_ATK + Game.equip_bonus("atk")) * Game.atk_mult() * float(Game.current_form()["atk"]) * mult * randf_range(0.9, 1.1)
+	var dmg := (BASE_ATK + Game.equip_bonus("atk")) * Game.atk_mult() * float(Game.current_form()["atk"]) * mult * randf_range(0.9, 1.1)
+	dmg *= 1.0 + Game.set_effect("atk_mult")  # เซ็ทขาล 3 ชิ้น
+	if randf() < Game.set_effect("crit"):  # เซ็ทขาล 5 ชิ้น: คริติคอล ดาเมจ 2 เท่า
+		dmg *= 2.0
+	return dmg
 
 
 func _basic_attack() -> void:
@@ -277,7 +281,7 @@ func use_skill(index: int) -> void:
 	if _cds.get(key, 0.0) > 0.0:
 		return
 	var spec: Dictionary = form["skills"][index]
-	_cds[key] = float(spec["cd"])
+	_cds[key] = float(spec["cd"]) * Game.set_effect("cd_mult")  # เซ็ทชวด 5 ชิ้น: คูลดาวน์ลด
 	var color: Color = form["outfit"]["shirt"].lerp(Color(1, 0.9, 0.4), 0.5)
 	match spec["kind"]:
 		"melee":
@@ -428,6 +432,12 @@ func _interact() -> void:
 func take_damage(amount: float, from_x: float) -> void:
 	if dead or _invuln > 0.0 or Game.in_dialogue:
 		return
+	if randf() < Game.set_effect("dodge"):
+		# เซ็ทชวด 5 ชิ้น: หลบได้
+		Game.spawn_number(global_position + Vector2(0, -80), "หลบ!", Color(0.7, 0.9, 1.0))
+		_invuln = 0.4
+		return
+	amount *= Game.set_effect("dmg_taken")  # เซ็ทฉลู 5 ชิ้น: รับดาเมจลด
 	Game.set_hp(Game.hp - amount)
 	Sound.play("hurt", 0.05)
 	Game.spawn_number(global_position + Vector2(0, -80), str(int(amount)), Color(1, 0.35, 0.35))
@@ -436,10 +446,11 @@ func take_damage(amount: float, from_x: float) -> void:
 	Fx.spawn(get_parent(), global_position + Vector2(0, -50), "spark", Vector2(34, 34), Color(1.0, 0.4, 0.4), 1, 0.25)
 	Game.shake(6.0, 0.22)
 	_invuln = 0.9
-	_knock_t = 0.22
 	_regen_wait = 5.0
-	_dash_t = 0.0
-	velocity = Vector2(signf(global_position.x - from_x) * 260.0, -280.0)
+	if Game.set_effect("no_knock") <= 0.0:  # เซ็ทฉลู 5 ชิ้น: ไม่กระเด็น
+		_knock_t = 0.22
+		_dash_t = 0.0
+		velocity = Vector2(signf(global_position.x - from_x) * 260.0, -280.0)
 	if Game.hp <= 0.0:
 		dead = true
 		Game.player_died()

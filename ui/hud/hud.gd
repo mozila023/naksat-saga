@@ -40,6 +40,9 @@ var _lines: Array = []
 var _line_index := 0
 var _dlg_delay := 0.0
 var _mute_btn: Button
+var _craft: Panel
+var _craft_list: VBoxContainer
+var _craft_money: Label
 
 
 func _ready() -> void:
@@ -60,6 +63,8 @@ func _ready() -> void:
 	_build_char()
 	_build_bag()
 	_build_hotbar()
+	_build_craft()
+	Game.crafting_opened.connect(open_craft)
 	Game.stats_changed.connect(_refresh_stats)
 	_refresh_stats()
 	Game.hp_changed.connect(_refresh_hp)
@@ -196,6 +201,18 @@ func _icon(item: String, px: int) -> TextureRect:
 	return t
 
 
+## สีชื่อไอเทมตามคุณภาพ (บนหน้าต่างสีครีม)
+func item_color(id: String) -> Color:
+	return Crafting.quality(int(Game.ITEMS[id].get("quality", 1)))["ui"]
+
+
+## ชื่อไอเทม พร้อมป้ายคุณภาพ เช่น "เสื้อหนังกบ [หายาก]"
+func item_title(id: String) -> String:
+	var q := int(Game.ITEMS[id].get("quality", 0))
+	var name: String = Game.ITEMS[id]["name"]
+	return name if q <= 1 else "%s [%s]" % [name, Crafting.quality(q)["name"]]
+
+
 func _refresh_stats() -> void:
 	_level_label.text = "Lv.%d" % Game.level
 	_exp_bar.max_value = Game.exp_needed()
@@ -324,7 +341,7 @@ class EquipSlot extends Panel:
 			_name.position.x = 40
 			_name.size.x = 84
 			_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-			_name.add_theme_color_override("font_color", Color(0.3, 0.18, 0.08))
+			_name.add_theme_color_override("font_color", hud.item_color(id))
 
 	func _can_drop_data(_at: Vector2, data: Variant) -> bool:
 		return data is Dictionary and data.has("item") and Game.ITEMS[data["item"]].get("slot", "") == slot
@@ -402,7 +419,7 @@ func _build_char() -> void:
 	_char.add_theme_stylebox_override("panel", _box(Color(1.0, 0.97, 0.88, 0.98), 18))
 	_char.set_anchors_preset(Control.PRESET_CENTER)
 	_char.position = Vector2(-470, -260)
-	_char.size = Vector2(308, 500)
+	_char.size = Vector2(308, 560)
 	_char.visible = false
 	_root.add_child(_char)
 	var title := _label("ตัวละคร", 30, Color(0.85, 0.4, 0.15), 0)
@@ -436,9 +453,11 @@ func _build_char() -> void:
 	_char_name = _label("", 22, Color(0.3, 0.18, 0.08), 0)
 	_char_name.position = Vector2(24, 300)
 	_char.add_child(_char_name)
-	_char_stats = _label("", 19, Color(0.3, 0.18, 0.08), 0)
+	_char_stats = _label("", 17, Color(0.3, 0.18, 0.08), 0)
 	_char_stats.position = Vector2(24, 334)
-	_char_stats.add_theme_constant_override("line_spacing", 2)
+	_char_stats.size = Vector2(270, 210)
+	_char_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_char_stats.add_theme_constant_override("line_spacing", -2)
 	_char.add_child(_char_stats)
 
 
@@ -448,12 +467,134 @@ func _fill_char() -> void:
 	_char_pic.texture = load(path) if path != "" and ResourceLoader.exists(path) else null
 	_char_name.text = "%s  ·  %s" % [Game.player_name, form["short"]] if Game.player_name != "" else form["name"]
 	var total_atk := Game.atk_mult() * float(form["atk"])
+	total_atk *= 1.0 + Game.set_effect("atk_mult")
 	_char_stats.text = "เลเวล  %d / %d\nEXP  %d / %d\nเลือด  %d / %d\nพลังโจมตี  %d\nความเร็ว  %d%%\nร่างที่มี  %d / 14" % [
-		Game.level, Game.MAX_LEVEL, Game.exp, Game.exp_needed(), ceili(Game.hp), int(Game.max_hp),
+		Game.level, Game.level_cap(), Game.exp, Game.exp_needed(), ceili(Game.hp), int(Game.max_hp),
 		int(round((Player.BASE_ATK + Game.equip_bonus("atk")) * total_atk)),
 		int(round(float(form["speed"]) * (1.0 + Game.equip_bonus("speed")) * 100.0)), Game.unlocked.size()]
+	# เซ็ทนักษัตรที่สวมอยู่: จำนวนชิ้น + ความสามารถที่เปิดแล้ว
+	var counts := Game.set_counts()
+	for z in counts:
+		var s: Dictionary = Crafting.SETS[z]
+		_char_stats.text += "\n%s  %d/5" % [s["name"], int(counts[z])]
+		for need in [3, 5]:
+			if int(counts[z]) >= need:
+				_char_stats.text += "\n  " + str(s["bonus%d" % need]["text"])
 	for slot in _equip_slots:
 		slot.refresh()
+
+
+# ---------- ช่างตีเหล็ก (คราฟของ) ----------
+
+func _build_craft() -> void:
+	_craft = Panel.new()
+	_craft.add_theme_stylebox_override("panel", _box(Color(1.0, 0.97, 0.88, 0.98), 18))
+	_craft.set_anchors_preset(Control.PRESET_CENTER)
+	_craft.position = Vector2(-340, -280)
+	_craft.size = Vector2(680, 540)
+	_craft.visible = false
+	_root.add_child(_craft)
+	var title := _label("ช่างตีเหล็ก", 30, Color(0.85, 0.4, 0.15), 0)
+	title.position = Vector2(28, 14)
+	_craft.add_child(title)
+	_craft_money = _label("", 18, Color(0.3, 0.18, 0.08), 0)
+	_craft_money.position = Vector2(300, 22)
+	_craft_money.size = Vector2(290, 26)
+	_craft_money.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_craft.add_child(_craft_money)
+	var close := Button.new()
+	close.text = "✕"
+	close.focus_mode = Control.FOCUS_NONE
+	close.position = Vector2(620, 14)
+	close.size = Vector2(44, 40)
+	close.add_theme_font_size_override("font_size", 20)
+	close.pressed.connect(close_craft)
+	_craft.add_child(close)
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(20, 66)
+	scroll.size = Vector2(640, 456)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_craft.add_child(scroll)
+	_craft_list = VBoxContainer.new()
+	_craft_list.custom_minimum_size = Vector2(620, 0)
+	_craft_list.add_theme_constant_override("separation", 8)
+	scroll.add_child(_craft_list)
+
+
+func open_craft() -> void:
+	Sound.play("ui")
+	_bag.visible = false
+	_char.visible = false
+	_craft.visible = true
+	_fill_craft()
+
+
+func close_craft() -> void:
+	_craft.visible = false
+
+
+func _fill_craft() -> void:
+	_craft_money.text = "%d บาท" % Game.money
+	for child in _craft_list.get_children():
+		_craft_list.remove_child(child)
+		child.queue_free()
+	for r in Crafting.recipe_list(Game.items):
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		row.custom_minimum_size = Vector2(620, 56)
+		row.add_child(_icon(r["icon"], 44))
+		var info := VBoxContainer.new()
+		info.custom_minimum_size = Vector2(470, 0)
+		info.add_theme_constant_override("separation", 0)
+		var col := Crafting.ZODIAC_QUALITY["ui"] if r["zodiac"] != "" else Color(0.3, 0.18, 0.08)
+		info.add_child(_label(r["name"], 20, col, 0))
+		var need: Array = []
+		for id in r["mats"]:
+			need.append("%s %d/%d" % [Game.ITEMS[id]["name"], mini(Game.item_count(id), int(r["mats"][id])), int(r["mats"][id])])
+		need.append("%d บาท" % int(r["cost"]))
+		if r["zodiac"] != "":
+			need.append("สำเร็จ %d%%" % int(round(Crafting.set_chance(int(Game.craft_fails.get(r["key"], 0))) * 100.0)))
+		var mats := _label("  ".join(need), 15, Color(0.45, 0.35, 0.25), 0)
+		mats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		mats.custom_minimum_size = Vector2(470, 0)
+		info.add_child(mats)
+		row.add_child(info)
+		var b := Button.new()
+		b.text = "ตี"
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(80, 46)
+		b.add_theme_font_size_override("font_size", 20)
+		b.disabled = not Game.can_craft(r)
+		b.add_theme_stylebox_override("normal", _box(Color(1.0, 0.82, 0.45), 10))
+		b.add_theme_stylebox_override("hover", _box(Color(1.0, 0.9, 0.6), 10))
+		b.add_theme_stylebox_override("pressed", _box(Color(0.95, 0.7, 0.35), 10))
+		b.add_theme_stylebox_override("disabled", _box(Color(0.88, 0.85, 0.78), 10))
+		for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+			b.add_theme_color_override(st, Color(0.35, 0.2, 0.08))
+		b.add_theme_color_override("font_disabled_color", Color(0.65, 0.6, 0.55))
+		b.pressed.connect(_do_craft.bind(r))
+		row.add_child(b)
+		_craft_list.add_child(row)
+
+
+func _do_craft(r: Dictionary) -> void:
+	var out := Game.craft(r)
+	if out == "":
+		return
+	if out == "FAIL":
+		Sound.play("hurt")
+		show_banner("ตีพัง!\nชิ้นส่วนนักษัตรยังอยู่ ลองใหม่อีกครั้ง")
+		_banner.add_theme_color_override("font_color", Color(1.0, 0.5, 0.45))
+		Game.shake(5.0, 0.2)
+		_fill_craft()
+		return
+	var q := Crafting.quality(int(Game.ITEMS[out].get("quality", 1)))
+	Sound.play("quest" if int(q["id"]) >= 3 else "ui")
+	show_banner("ได้ %s\n[%s]" % [Game.ITEMS[out]["name"], q["name"]])
+	_banner.add_theme_color_override("font_color", q["color"])
+	if Game.player:
+		Fx.spawn(Game.player.get_parent(), Game.player.global_position + Vector2(0, -60), "star", Vector2(40, 100), q["color"], 1, 0.7)
+	_fill_craft()
 
 
 func toggle_bag() -> void:
@@ -510,7 +651,7 @@ func _fill_bag() -> void:
 		row.mouse_default_cursor_shape = Control.CURSOR_DRAG
 		row.add_theme_constant_override("separation", 12)
 		row.add_child(_icon(info["icon"], 44))
-		var text := "%s  x%d" % [info["name"], count]
+		var text := "%s  x%d" % [item_title(id), count]
 		var bonus: Array = []
 		if info.has("atk"):
 			bonus.append("โจมตี +%d" % int(info["atk"]))
@@ -520,7 +661,7 @@ func _fill_bag() -> void:
 			bonus.append("เร็ว +%d%%" % int(round(float(info["speed"]) * 100.0)))
 		if not bonus.is_empty():
 			text += "    " + "  ".join(bonus)
-		row.add_child(_label(text, 20, Color(0.3, 0.18, 0.08), 0))
+		row.add_child(_label(text, 20, item_color(id), 0))
 		_bag_list.add_child(row)
 	if not any:
 		_bag_list.add_child(_label("ว่าง", 19, Color(0.6, 0.5, 0.4), 0))
@@ -651,6 +792,7 @@ func _build_banner() -> void:
 
 func show_banner(text: String) -> void:
 	_banner.text = text
+	_banner.add_theme_color_override("font_color", Color(1.0, 0.95, 0.7))
 	if _banner_tween:
 		_banner_tween.kill()
 	_banner.modulate.a = 1.0
@@ -728,7 +870,13 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("mute"):
 		_toggle_mute()
 	if Input.is_action_just_pressed("bag") and not Game.in_dialogue:
-		toggle_bag()
+		if _craft.visible:
+			close_craft()
+		else:
+			toggle_bag()
+	# เดินออกห่างจากช่าง = ปิดหน้าคราฟ
+	if _craft.visible and Game.player and (Input.is_action_pressed("move_left") or Input.is_action_pressed("move_right")):
+		close_craft()
 	if not Game.in_dialogue:
 		for i in Game.HOTBAR_SIZE:
 			if Input.is_action_just_pressed("slot_%d" % (i + 1)):
