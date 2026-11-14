@@ -21,6 +21,12 @@ SHEETS = [
     ("naksat_ox_boss_walk", "ox_boss", 2, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 340.0, (720, 480), (50, 90)),
     ("naksat_ox_boss_actions", "ox_boss", 2, ["crouch_0", "leap_0", "swipe_0", "roar_0"], None, 340.0, (720, 480), (50, 90)),
     ("naksat_mist_giant_walk", "mist_giant", 2, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 380.0, (720, 520), (50, 90)),
+    ("naksat_beetle_walk", "beetle", 1, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 120.0, (280, 180), (50, 90)),
+    ("naksat_bamboo_ghost_walk", "bamboo_ghost", 1, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 190.0, (220, 230), (50, 90)),
+    ("naksat_pong_khang_walk", "pong_khang", 2, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 380.0, (720, 520), (50, 90)),
+    ("naksat_pong_khang_actions", "pong_khang", 2, ["crouch_0", "leap_0", "swipe_0", "roar_0"], None, 380.0, (720, 520), (50, 90)),
+    ("naksat_rabbit_boss_walk", "rabbit_boss", 2, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 320.0, (620, 460), (50, 90)),
+    ("naksat_rabbit_boss_actions", "rabbit_boss", 2, ["crouch_0", "leap_0", "swipe_0", "roar_0"], None, 320.0, (620, 460), (50, 90)),
     ("naksat_mist_giant_actions", "mist_giant", 2, ["crouch_0", "leap_0", "swipe_0", "roar_0"], None, 380.0, (720, 520), (50, 90)),
 ]
 ONLY = set(sys.argv[3:])
@@ -29,7 +35,7 @@ ONLY = set(sys.argv[3:])
 # เฟรมที่ AI วาดหันผิดด้าน (ต้องหันซ้ายเหมือนเฟรมอื่น) ให้กลับด้าน
 FLIP = set()
 # ตัวที่ AI วาดหันขวาทั้งชีต ให้กลับด้านทุกเฟรม
-FLIP_ALL = {"mist_giant", "frog", "ox_boss"}
+FLIP_ALL = {"mist_giant", "frog", "ox_boss", "beetle", "pong_khang", "rabbit_boss"}
 
 
 def key_out(im, lo, hi):

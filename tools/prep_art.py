@@ -5,6 +5,7 @@ from PIL import Image
 from scipy import ndimage
 
 SRC, OUT = sys.argv[1], sys.argv[2]
+ONLY = set(sys.argv[3:])  # ใส่ชื่อในเกม (เช่น village2 npc_elder) = ทำเฉพาะตัวนั้น
 
 # ชื่อไฟล์ -> (ชื่อในเกม, ความสูงที่แสดงในเกมเป็นพิกเซล)
 CHARS = {
@@ -13,6 +14,8 @@ CHARS = {
     "naksat_npc_chief": ("npc_chief", 108),
     "naksat_npc_auntie": ("npc_auntie", 108),
     "naksat_npc_uncle": ("npc_uncle", 104),
+    "naksat_npc_elder": ("npc_elder", 100),
+    "naksat_npc_merchant": ("npc_merchant", 108),
     "naksat_frog": ("frog", 62),
     "naksat_mushroom": ("mushroom", 84),
     "naksat_tiger_boss": ("tiger_boss", 160),
@@ -22,6 +25,8 @@ BGS = {
     "naksat_bg_village": ("village", 444),
     "naksat_bg_field": ("field", 449),
     "naksat_bg_cave": ("cave", 432),
+    "naksat_bg_village2": ("village2", 480),
+    "naksat_bg_forest": ("forest", 480),
 }
 
 
@@ -56,6 +61,8 @@ def key_out(im):
 
 
 for src, (name, h) in CHARS.items():
+    if ONLY and name not in ONLY:
+        continue
     im = key_out(Image.open(f"{SRC}/{src}.png"))
     im = im.crop(im.getchannel("A").point(lambda v: 255 if v > 40 else 0).getbbox())
     th = h * 2  # เก็บละเอียด 2 เท่าของขนาดที่แสดง ให้คมบนจอใหญ่
@@ -64,6 +71,8 @@ for src, (name, h) in CHARS.items():
     print(name, im.size)
 
 for src, (name, gy) in BGS.items():
+    if ONLY and name not in ONLY:
+        continue
     im = Image.open(f"{SRC}/{src}.png").convert("RGB")
     a = np.asarray(im).astype(np.float32)
     top = a[:6].reshape(-1, 3).mean(axis=0)

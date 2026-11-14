@@ -173,7 +173,7 @@ func _physics_process(delta: float) -> void:
 				_drop_t = 0.25
 				set_collision_mask_value(4, false)
 			else:
-				velocity.y = JUMP_VELOCITY * float(form["jump"])
+				velocity.y = JUMP_VELOCITY * float(form["jump"]) * (1.0 + Game.set_effect("jump") * 0.5)  # เซ็ทเถาะ: กระโดดสูงขึ้น
 				Sound.play("jump", 0.06)
 				Fx.spawn(get_parent(), global_position + Vector2(0, -4), "puff", Vector2(18, 5), Color(1, 1, 1, 0.5), facing, 0.25)
 		if Input.is_action_pressed("attack"):
@@ -265,7 +265,7 @@ func _damage(mult: float) -> float:
 func _basic_attack() -> void:
 	if _attack_cd > 0.0:
 		return
-	_attack_cd = ATTACK_COOLDOWN
+	_attack_cd = ATTACK_COOLDOWN / (1.0 + Game.set_effect("atk_speed"))  # เซ็ทเถาะ: ตีเร็วขึ้น
 	_swing_t = SWING_TIME
 	var color: Color = Color(0.75, 0.92, 1.0) if Game.form_id == "normal" else Color(1.0, 0.75, 0.3)
 	_melee(100.0, 96.0, 1.0, "claw" if Game.current_form()["outfit"].get("weapon_kind", "") == "claw" else "slash", color)

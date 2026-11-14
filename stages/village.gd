@@ -6,7 +6,8 @@ func build() -> void:
 	width = 6400.0
 	title = "หมู่บ้านนักษัตร"
 	style = "village"
-	spawns = {"start": Vector2(420, GROUND_Y), "from_field": Vector2(6080, GROUND_Y), "from_house": Vector2(2050, GROUND_Y)}
+	Game.arrive_village(1)
+	spawns = {"start": Vector2(420, GROUND_Y), "from_village2": Vector2(300, GROUND_Y), "from_field": Vector2(6080, GROUND_Y), "from_house": Vector2(2050, GROUND_Y)}
 
 	add_bg("clouds", 0.05, -8.0)
 	add_bg("hills", 0.12)
@@ -55,7 +56,7 @@ func build() -> void:
 	add_npc(4360.0, "ลุงหมู", {"shirt": Color(0.6, 0.8, 0.5), "pants": Color(0.35, 0.3, 0.2), "accent": Color(0.4, 0.3, 0.2), "hair": Color(0.2, 0.2, 0.2), "hat": "straw", "sprite": "res://assets/art/npc_uncle.png"}, _talk_uncle)
 
 	# ---- ประตู ----
-	add_portal(70.0, "ไปหมู่บ้านถัดไป", "village", "start", _next_village_lock, Color(1.0, 0.6, 0.9))
+	add_portal(70.0, "ไปบ้านผาจันทร์", "village2", "from_village1", _next_village_lock, Color(1.0, 0.6, 0.9))
 	add_portal(2050.0, "บ้านผู้ใหญ่บ้าน", "chief_house", "entrance", Callable(), Color(1.0, 0.82, 0.4))
 	add_portal(6240.0, "ไปทุ่งนา", "rice_field", "from_village", Callable(), Color(0.6, 1.0, 0.5))
 
@@ -64,7 +65,7 @@ func build() -> void:
 func _next_village_lock() -> String:
 	if Game.travel_permit <= Game.village:
 		return "ทางไปหมู่บ้านถัดไป ต้องมี ใบเบิกทาง จากผู้ใหญ่บ้านก่อน (ทำเควสของหมู่บ้านนี้ให้ครบ)"
-	return "หมู่บ้านถัดไป กำลังสร้างอยู่ เร็ว ๆ นี้!"
+	return ""
 
 
 func _talk_smith() -> void:

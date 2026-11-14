@@ -35,6 +35,9 @@ const DEMONS := {
 	"mist_giant": {"name": "ยักษ์หมอกทมิฬ", "hp": 1400.0, "size": Vector2(150, 170), "frames": "mist_giant",
 		"walk": [120.0, 170.0], "tel": 1.1, "claw": 22.0, "pounce": 28.0, "contact": 14.0, "wave": 18.0,
 		"reach": 260.0, "shout": "ฮ่าฮ่าฮ่า!!", "aura": Color(0.65, 0.4, 1.0)},
+	"pong_khang": {"name": "ผีโป่งค่าง", "hp": 2800.0, "size": Vector2(150, 175), "frames": "pong_khang",
+		"walk": [150.0, 210.0], "tel": 0.95, "claw": 32.0, "pounce": 40.0, "contact": 20.0, "wave": 30.0,
+		"reach": 260.0, "shout": "แฮ่!!", "aura": Color(0.5, 0.35, 0.9)},
 }
 
 

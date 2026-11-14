@@ -11,6 +11,8 @@ const ART := {
 	"field": {"split": 449.0, "feet": 474.0, "sky": Color(0.35, 0.765, 0.971)},
 	"cave": {"split": 432.0, "feet": 466.0, "sky": Color(0.142, 0.119, 0.124)},
 	"house": {"split": 424.0, "feet": 470.0, "sky": Color(0.362, 0.153, 0.118)},
+	"village2": {"split": 480.0, "feet": 500.0, "sky": Color(0.377, 0.502, 0.695)},
+	"forest": {"split": 480.0, "feet": 500.0, "sky": Color(0.173, 0.276, 0.29)},
 }
 
 var width := 4000.0
@@ -366,6 +368,23 @@ func _draw_platform(r: Rect2) -> void:
 		"cave":
 			Art.box(self, r, Color(0.46, 0.41, 0.48), 8.0, 3.0, Color(0.12, 0.1, 0.14))
 			Art.rrect(self, Rect2(r.position + Vector2(3, 2), Vector2(r.size.x - 6, 6)), Color(0.62, 0.57, 0.64), 3.0)
+		"village2", "forest":
+			# แคร่ไม้ไผ่: ไผ่ 2 ลำวางซ้อน มัดเชือกเป็นช่วง ๆ (ในป่ามีมอสเกาะ)
+			Art.rrect(self, Rect2(r.position.x + 14, r.end.y - 4, 8, 18), Color(0.42, 0.5, 0.24), 3.0)
+			Art.rrect(self, Rect2(r.end.x - 22, r.end.y - 4, 8, 18), Color(0.42, 0.5, 0.24), 3.0)
+			Art.rrect(self, Rect2(r.position.x, r.position.y + 9, r.size.x, 10), Color(0.48, 0.6, 0.26), 5.0)
+			Art.rrect(self, Rect2(r.position.x - 3, r.position.y, r.size.x + 6, 11), Color(0.62, 0.74, 0.32), 5.5)
+			Art.rrect(self, Rect2(r.position.x + 2, r.position.y + 2, r.size.x - 4, 3), Color(0.82, 0.9, 0.5), 1.5)
+			var px := r.position.x + 30.0
+			while px < r.end.x - 12.0:
+				draw_line(Vector2(px, r.position.y), Vector2(px, r.position.y + 19), Color(0.38, 0.46, 0.2), 2.0, true)
+				Art.rrect(self, Rect2(px - 4, r.position.y + 3, 8, 13), Color(0.7, 0.55, 0.32), 2.0)
+				px += 58.0
+			if style == "forest":
+				var mx := r.position.x + 18.0
+				while mx < r.end.x - 10.0:
+					Art.ellipse(self, Vector2(mx, r.position.y + 1), 10.0, 4.0, Color(0.3, 0.52, 0.26, 0.9))
+					mx += 71.0
 
 
 ## ผีเสื้อ / หิ่งห้อย ให้ฉากดูมีชีวิต
@@ -375,7 +394,7 @@ func _draw_ambient(x0: float, x1: float) -> void:
 	while bx < x1:
 		var seed_v := bx * 0.013
 		var pos := Vector2(bx + 200.0 + sin(_t * 0.7 + seed_v * 5.0) * 90.0, GROUND_Y - 130.0 - fmod(absf(bx) * 0.37, 160.0) + sin(_t * 1.9 + seed_v * 3.0) * 30.0)
-		if style == "cave":
+		if style in ["cave", "forest", "village2"]:
 			var a := 0.5 + 0.5 * sin(_t * 3.0 + seed_v * 9.0)
 			Art.glow(self, pos, 14.0, Color(1.0, 0.95, 0.5, a))
 			Art.circle(self, pos, 2.5, Color(1.0, 1.0, 0.8, a))

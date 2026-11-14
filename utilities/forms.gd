@@ -112,6 +112,32 @@ const LIST := [
 			{"name": "คำราม", "kind": "aoe", "cd": 12.0, "dmg": 4.0, "radius": 260.0, "stun": 2.0, "style": "roar"},
 		],
 	},
+	{
+		# ร่างเถาะ: เบาและกระโดดสูงที่สุด ตีเร็วหลายครั้ง
+		"id": "rabbit",
+		"name": "ร่างเถาะ",
+		"short": "กระต่าย",
+		"speed": 1.15,
+		"jump": 1.22,
+		"atk": 1.35,
+		"outfit": {
+			"shirt": Color(0.98, 0.95, 0.98),
+			"pants": Color(0.75, 0.6, 0.85),
+			"accent": Color(1.0, 0.8, 0.3),
+			"hair": Color(0.12, 0.1, 0.12),
+			"ears": "",
+			"sprite": "res://assets/art/hero_rabbit.png",
+			"frames": "res://assets/art/frames/hero_rabbit_",
+			"weapon_kind": "claw",
+			"stripes": false,
+			"weapon": Color(1.0, 0.95, 0.8),
+		},
+		"skills": [
+			{"name": "เตะจันทร์เสี้ยว", "kind": "melee", "cd": 2.2, "dmg": 1.1, "w": 150.0, "h": 120.0, "hits": 4, "interval": 0.1, "fx": "slash"},
+			{"name": "กระโดดพุ่ง", "kind": "dash", "cd": 3.0, "speed": 900.0, "time": 0.3, "jump": -560.0, "dmg": 2.2, "invuln": true},
+			{"name": "จันทร์เพ็ญ", "kind": "aoe", "cd": 11.0, "dmg": 4.4, "radius": 270.0, "stun": 1.6, "style": "roar", "shout": "ปุ๊ก!!"},
+		],
+	},
 ]
 
 

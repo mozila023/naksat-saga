@@ -212,11 +212,12 @@ func _ready() -> void:
 	check(Game.equipped.get("weapon", "") == "wood_sword" and Game.item_count("wood_sword") == 0, "sword is equipped and leaves the bag")
 	check(Game.equip_bonus("atk") > atk_before, "equipment raises attack")
 	Game.add_item("straw_hat", 1)
+	var hats := Game.item_count("straw_hat")  # กบอาจดรอปหมวกมาก่อนแล้ว
 	var hp_cap := Game.max_hp
 	Game.equip("straw_hat")
 	check(Game.max_hp > hp_cap, "hat raises max HP")
 	Game.unequip("head")
-	check(Game.max_hp == hp_cap and Game.item_count("straw_hat") == 1, "unequip returns the item")
+	check(Game.max_hp == hp_cap and Game.item_count("straw_hat") == hats, "unequip returns the item")
 	Game.add_item("straw_hat", -1)
 	main.hud._set_bag_tab("equip")
 	await shot("04d_equipment")
@@ -390,8 +391,11 @@ func _ready() -> void:
 	main.hud._fill_craft()
 	await shot("05c_craft")
 	var general: Dictionary = Crafting.recipe_list(Game.items)[2]
+	var vests := {}
+	for q in 4:
+		vests[q + 1] = Game.item_count("frog_vest__q%d" % (q + 1))
 	var made := Game.craft(general)
-	check(made.begins_with("frog_vest__q") and Game.item_count(made) == 1, "crafting makes a quality item (%s)" % made)
+	check(made.begins_with("frog_vest__q") and Game.item_count(made) == vests[int(made.right(1))] + 1, "crafting makes a quality item (%s)" % made)
 	var rolls := {}
 	for i in 400:
 		rolls[Crafting.roll_quality()] = int(rolls.get(Crafting.roll_quality(), 0)) + 1
@@ -520,8 +524,154 @@ func _ready() -> void:
 	check(p.dead, "player can die")
 	await frames(240)
 	check(not p.dead and main.stage_id == "village", "respawn in village")
-	check(Game.quest_text().contains("หมู่บ้านถัดไป"), "quest points to the next village (%s)" % Game.quest_text())
+	check(Game.quest_text().contains("บ้านผาจันทร์"), "quest points to the next village (%s)" % Game.quest_text())
 	await shot("11_end")
+	Game._apply_level()
+	Game.set_hp(Game.max_hp)
+
+	# ---- หมู่บ้าน 2: บ้านผาจันทร์ ----
+	p.global_position.x = 70.0
+	await frames(20)
+	await tap("interact")
+	await frames(70)
+	check(main.stage_id == "village2", "permit opens the road to village 2 (%s)" % main.stage_id)
+	check(Game.village == 2 and Game.level_cap() == 40, "arrived in village 2, cap 40")
+	check(Game.current_quest().get("village", 0) == 2 and not Game.quest_accepted, "first village 2 quest waiting (%d)" % Game.quest_index)
+	check(Game.quest_text().contains("ยายจันทร์"), "quest text points to Grandma Chan (%s)" % Game.quest_text())
+	await shot("12_village2")
+	main.change_stage("village", "start")
+	await frames(60)
+	main.change_stage("chief_house", "entrance")
+	await frames(60)
+	p.global_position.x = 700.0
+	await frames(20)
+	await talk_through()
+	check(not Game.quest_accepted, "village 1 chief sends you to village 2")
+	main.change_stage("elder_house", "entrance")
+	await frames(60)
+	await shot("13_elder_house")
+	p.global_position.x = 700.0
+	await frames(20)
+	await talk_through()
+	check(Game.quest_accepted and Game.current_quest()["target"] == "beetle", "beetle quest from Grandma Chan")
+	main.change_stage("bamboo_forest", "from_village")
+	await frames(60)
+	check(get_tree().get_nodes_in_group("enemies").size() >= 10, "bamboo forest has monsters")
+	await shot("14_bamboo_forest")
+	p.global_position.x = 3300.0
+	await frames(60)
+	await shot("14b_bamboo_ghosts")
+	for i in 8:
+		Game.on_enemy_killed("beetle")
+	check(Quests.is_done(Game.current_quest()), "beetle quest done")
+	main.change_stage("elder_house", "entrance")
+	await frames(60)
+	p.global_position.x = 700.0
+	await frames(20)
+	await talk_through()
+	check(Game.current_quest()["target"] == "beetle_horn", "beetle horn quest (%d)" % Game.quest_index)
+	Game.add_item("beetle_horn", 10)
+	Game.add_item("bamboo_core", 10)
+	await talk_through()
+	check(Game.current_quest()["target"] == "tiger", "tiger quest (%d)" % Game.quest_index)
+	while Game.level < 30:
+		Game.add_exp(Game.exp_needed())
+	main.change_stage("elder_house", "entrance")
+	await frames(60)
+	spirits = get_tree().get_nodes_in_group("interactables").filter(func(n: Node) -> bool: return n is ZodiacSpirit)
+	check(spirits.size() == 1 and spirits[0].zodiac["id"] == "tiger", "tiger spirit at Grandma Chan's shrine")
+	p.global_position.x = 1500.0
+	await frames(30)
+	await talk_through()
+	await frames(60)
+	check(main.stage_id == "trial_hall" and Game.boss != null and Game.boss.zodiac_id == "tiger", "tiger trial")
+	await kill_all(1)
+	check("tiger" in Game.unlocked, "tiger form unlocked")
+	Game.end_dialogue()
+	main.hud._dialogue.visible = false
+	await frames(30)
+	main.change_stage("elder_house", "from_trial")
+	await frames(60)
+	p.global_position.x = 700.0
+	await frames(20)
+	await talk_through()
+	check(Game.current_quest()["target"] == "bamboo_ghost", "bamboo ghost quest (%d)" % Game.quest_index)
+	for i in 8:
+		Game.on_enemy_killed("bamboo_ghost")
+	await talk_through()
+	check(Game.current_quest()["type"] == "craft", "craft quest in village 2")
+	Game.money += 1000
+	Game.add_item("beetle_horn", 10)
+	var recipes2: Array = Crafting.recipe_list(Game.items)
+	var keys: Array = recipes2.map(func(r: Dictionary) -> String: return r["key"])
+	check("horn_spear" in keys and "zset_tiger_weapon" in keys, "village 2 recipes and tiger set at the smith")
+	var spear: Dictionary = recipes2[keys.find("horn_spear")]
+	check(Game.craft(spear) != "", "craft a horn spear")
+	await talk_through()
+	check(Game.current_quest()["target"] == "pong_khang", "demon quest (%d)" % Game.quest_index)
+	while Game.level < 35:
+		Game.add_exp(Game.exp_needed())
+	main.change_stage("bamboo_forest", "from_lair")
+	await frames(60)
+	p.global_position.x = 200.0
+	await frames(20)
+	await tap("interact")
+	await frames(70)
+	check(main.stage_id == "ghost_lair" and Game.boss != null and Game.boss.zodiac_id == "pong_khang", "ghost lair with Phi Pong Khang")
+	Game.max_hp = 100000.0
+	Game.set_hp(100000.0)
+	p.global_position.x = 1200.0
+	await frames(200)
+	await shot("15_pong_khang")
+	await kill_all(1)
+	await frames(30)
+	check(Quests.is_done(Game.current_quest()) and Game.item_count("ghost_fur") >= 0, "demon quest done")
+	Game._apply_level()
+	Game.set_hp(Game.max_hp)
+	main.change_stage("elder_house", "entrance")
+	await frames(60)
+	p.global_position.x = 700.0
+	await frames(20)
+	await talk_through()
+	check(Game.current_quest()["target"] == "bamboo_core", "bamboo core quest (%d)" % Game.quest_index)
+	Game.add_item("bamboo_core", 6)
+	await talk_through()
+	check(Game.current_quest()["target"] == "rabbit", "rabbit quest (%d)" % Game.quest_index)
+	while Game.level < 40:
+		Game.add_exp(Game.exp_needed())
+	Game.add_exp(9000)
+	check(Game.level == 40, "level stays at the village 2 cap")
+	main.change_stage("elder_house", "entrance")
+	await frames(60)
+	p.global_position.x = 1500.0
+	await frames(30)
+	await talk_through()
+	await frames(60)
+	check(main.stage_id == "trial_hall" and Game.boss != null and Game.boss.zodiac_id == "rabbit", "rabbit trial")
+	Game.max_hp = 100000.0
+	Game.set_hp(100000.0)
+	p.global_position.x = 900.0
+	await frames(200)
+	await shot("16_rabbit_boss")
+	await kill_all(1)
+	check("rabbit" in Game.unlocked and Game.item_count("zpart_rabbit_fang") == 1, "rabbit form and parts")
+	Game.end_dialogue()
+	main.hud._dialogue.visible = false
+	await frames(30)
+	Game.set_form("rabbit")
+	for i in 3:
+		p.use_skill(i)
+		await frames(40)
+	await shot("17_rabbit_form")
+	main.change_stage("elder_house", "from_trial")
+	await frames(60)
+	p.global_position.x = 700.0
+	await frames(20)
+	await talk_through()
+	check(Game.current_quest()["type"] == "travel" and Game.travel_permit == 3, "travel permit to village 3")
+	Game.save_game()
+	Game.load_game()
+	check(Game.village == 2 and Game.travel_permit == 3, "village 2 saved")
 
 	Game.reset_save()
 	print("RESULT: %s (%d failed)" % ["PASS" if fails == 0 else "FAIL", fails])

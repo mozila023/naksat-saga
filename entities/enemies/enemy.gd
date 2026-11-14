@@ -5,6 +5,9 @@ const GRAVITY := 1800.0
 const KINDS := {
 	"frog": {"name": "กบนา", "lv": [1, 4], "hp": 32.0, "dmg": 8.0, "speed": 75.0, "size": Vector2(58, 48), "sprite": "res://assets/art/frog.png"},
 	"mushroom": {"name": "เห็ดพิษ", "lv": [5, 9], "hp": 75.0, "dmg": 13.0, "speed": 55.0, "size": Vector2(56, 72), "sprite": "res://assets/art/mushroom.png"},
+	# หมู่บ้าน 2 (ป่าไผ่ผาจันทร์)
+	"beetle": {"name": "ด้วงกว่าง", "lv": [20, 29], "hp": 220.0, "dmg": 24.0, "speed": 70.0, "size": Vector2(84, 56), "sprite": "res://assets/art/beetle.png"},
+	"bamboo_ghost": {"name": "ผีไผ่", "lv": [30, 39], "hp": 330.0, "dmg": 32.0, "speed": 62.0, "size": Vector2(58, 92), "sprite": "res://assets/art/bamboo_ghost.png"},
 }
 
 var kind := "frog"

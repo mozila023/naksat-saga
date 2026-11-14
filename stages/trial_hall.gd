@@ -11,7 +11,8 @@ func build() -> void:
 
 	add_platform(560.0, 440.0, 220.0)
 	add_platform(1420.0, 440.0, 220.0)
-	add_portal(100.0, "กลับหอบูชา", "chief_house", "from_trial", Callable(), Color(0.6, 1.0, 0.5))
+	var house := "chief_house" if z.is_empty() else str(Quests.village_info(Zodiac.village_of(z))["house"])
+	add_portal(100.0, "กลับหอบูชา", house, "from_trial", Callable(), Color(0.6, 1.0, 0.5))
 
 	if not z.is_empty():
 		var boss := ZodiacBoss.create(z["id"])

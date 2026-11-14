@@ -6,8 +6,15 @@ const STAGES := {
 	"rice_field": preload("res://stages/rice_field.gd"),
 	"demon_lair": preload("res://stages/demon_lair.gd"),
 	"chief_house": preload("res://stages/chief_house.gd"),
+	"village2": preload("res://stages/village2.gd"),
+	"bamboo_forest": preload("res://stages/bamboo_forest.gd"),
+	"elder_house": preload("res://stages/elder_house.gd"),
+	"ghost_lair": preload("res://stages/ghost_lair.gd"),
 	"trial_hall": preload("res://stages/trial_hall.gd"),
 }
+
+# เพลงของแต่ละแผนที่ (แผนที่ที่ไม่มีเพลงของตัวเอง ยืมเพลงของแผนที่ที่คล้ายกัน)
+const BGM := {"chief_house": "village", "elder_house": "village", "village2": "village", "bamboo_forest": "rice_field", "ghost_lair": "demon_lair"}
 
 var world: Node2D
 var stage: Stage
@@ -43,7 +50,7 @@ func _ready() -> void:
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fade_layer.add_child(_fade)
 
-	_load_stage("village", "start")
+	_load_stage(Game.home_stage(), "start")
 	create_tween().tween_property(_fade, "color:a", 0.0, 0.4)
 
 	# หน้าปกเกม: ซ่อน HUD และล็อกตัวละครไว้จนกว่าจะคลิกเริ่ม
@@ -114,7 +121,7 @@ func _load_stage(id: String, spawn: String) -> void:
 	player.velocity = Vector2.ZERO
 	player.set_camera_limits(stage.width)
 	Game.banner.emit(stage.title)
-	Sound.play_bgm("village" if id == "chief_house" else id)
+	Sound.play_bgm(BGM.get(id, id))
 
 
 func on_player_died() -> void:
@@ -122,7 +129,7 @@ func on_player_died() -> void:
 	Game.active_trial = ""  # แพ้การประลอง: กลับไปคุยกับนักษัตรใหม่ได้
 	await get_tree().create_timer(1.6).timeout
 	_changing = false
-	change_stage("village", "start")
+	change_stage(Game.home_stage(), "start")
 	await get_tree().create_timer(0.3).timeout
 	player.revive()
 

@@ -4,6 +4,7 @@
 ใช้: python3 tools/prep_grid.py <ชีต.png> <ชื่อออก เช่น heroine_rat> [assets/art]
     แถวเดินใช้ได้ 4-6 เฟรม (ใช้ทุกเฟรมที่ AI วาดมา)
 """
+import os
 import sys
 import numpy as np
 from PIL import Image
@@ -24,7 +25,11 @@ rgba[..., 3] = np.where(lines, 0, rgba[..., 3])
 solid = rgba[..., 3] > 128
 
 # เก็บเฉพาะก้อนใหญ่ แล้วจัดกลุ่มเป็นตัวละครแต่ละตัว
-lab, n = ndimage.label(ndimage.binary_dilation(solid, iterations=3))
+# ตัวละครแถวบนกับแถวล่างแตะกัน: ตัดแยกที่แถวพิกเซลที่ระบุ เช่น CUTS=184,375
+for cy in [int(v) for v in os.environ.get("CUTS", "").split(",") if v]:
+    solid[cy] = False
+DIL = int(os.environ.get("DIL", "3"))  # ตัวชิดกันมากให้ลดค่านี้ (DIL=1)
+lab, n = ndimage.label(ndimage.binary_dilation(solid, iterations=DIL) if DIL > 0 else solid)
 objs = []
 for i, sl in enumerate(ndimage.find_objects(lab)):
     m = (lab[sl] == i + 1) & solid[sl]

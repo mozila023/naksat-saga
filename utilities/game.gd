@@ -31,6 +31,10 @@ var ITEMS := {
 	"amulet": {"name": "เหรียญนำโชค", "desc": "", "icon": "amulet", "tab": "equip", "slot": "charm", "atk": 2.0, "hp": 15.0, "buy": 150, "sell": 40},
 	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 0},
 	"mist_horn": {"name": "เขาปิศาจหมอก", "desc": "", "icon": "mist_horn", "tab": "etc", "buy": 0, "sell": 0, "auntie": 60},
+	# ของดรอปหมู่บ้าน 2
+	"beetle_horn": {"name": "เขาด้วงกว่าง", "desc": "", "icon": "beetle_horn", "tab": "etc", "buy": 0, "sell": 14},
+	"bamboo_core": {"name": "แก่นไผ่", "desc": "", "icon": "bamboo_core", "tab": "etc", "buy": 0, "sell": 20},
+	"ghost_fur": {"name": "ขนผีโป่งค่าง", "desc": "", "icon": "ghost_fur", "tab": "etc", "buy": 0, "sell": 0, "auntie": 120},
 }
 const POTION_HEAL := 50.0
 # ของในร้านป้าศรี (เรียงตามที่แสดง)
@@ -46,7 +50,11 @@ const REWARDS := {
 	"mushroom": {"exp": 18, "coins": [1, 3], "coin_value": [3, 6], "drops": [["mushroom_cap", 0.4], ["potion", 0.025], ["wood_sword", 0.03], ["pha_khao_ma", 0.03]]},
 	"rat": {"exp": 300, "coins": [6, 6], "coin_value": [6, 10], "drops": [["potion", 1.0], ["sandals", 1.0]]},
 	"mist_giant": {"exp": 700, "coins": [6, 9], "coin_value": [12, 18], "drops": [["mist_horn", 1.0], ["potion", 0.6]]},
-	"tiger": {"exp": 900, "coins": [8, 8], "coin_value": [10, 14], "drops": [["tiger_fang", 1.0], ["potion", 1.0], ["amulet", 1.0]]},
+	"beetle": {"exp": 60, "coins": [2, 3], "coin_value": [8, 14], "drops": [["beetle_horn", 0.4], ["big_potion", 0.03]]},
+	"bamboo_ghost": {"exp": 95, "coins": [2, 4], "coin_value": [10, 18], "drops": [["bamboo_core", 0.4], ["big_potion", 0.04]]},
+	"pong_khang": {"exp": 3000, "coins": [8, 10], "coin_value": [30, 45], "drops": [["ghost_fur", 1.0], ["big_potion", 0.8]]},
+	"rabbit": {"exp": 4000, "coins": [10, 10], "coin_value": [30, 40], "drops": [["big_potion", 1.0]]},
+	"tiger": {"exp": 2600, "coins": [8, 8], "coin_value": [10, 14], "drops": [["tiger_fang", 1.0], ["potion", 1.0], ["amulet", 1.0]]},
 }
 
 var main: Node
@@ -70,6 +78,7 @@ var active_trial := ""  # นักษัตรที่กำลังประ
 # หมู่บ้าน: หมู่บ้านที่ N มีเลเวลตัน N x 20 (ไปหมู่บ้านถัดไปได้เมื่อได้ใบเบิกทางจากเควส)
 var village := 1
 var travel_permit := 1  # หมู่บ้านไกลสุดที่มีใบเบิกทางแล้ว
+var home_village := 1   # หมู่บ้านที่อยู่ล่าสุด (หมดแรงแล้วกลับไปที่นี่ เปิดเกมก็เริ่มที่นี่)
 var zodiac_gifts: Array = []  # นักษัตรที่มอบชิ้นส่วนให้แล้ว (ตัวละ 1 ชุด)
 var craft_fails := {}  # ของเซ็ทนักษัตร -> จำนวนครั้งที่ตีพัง (ยิ่งพังบ่อย ครั้งต่อไปยิ่งง่าย)
 const VILLAGE_CAP := 20
@@ -280,17 +289,18 @@ func quest_text() -> String:
 	var q := current_quest()
 	if q.is_empty():
 		return "เควส: หมู่บ้านถัดไป เร็ว ๆ นี้"
+	var vi := Quests.village_info(int(q.get("village", 1)))
 	if not quest_accepted:
-		return "เควส: ไปพบผู้ใหญ่บ้านที่บ้านผู้ใหญ่บ้าน"
+		return "เควส: ไปพบ%sที่%s" % [vi["chief"], vi["house_name"]]
 	if q["type"] == "travel":
-		return "เควส: เดินทางไปหมู่บ้านถัดไป (ประตูซ้ายสุดของหมู่บ้าน)"
+		return "เควส: %s (ประตูฝั่งซ้ายของหมู่บ้าน)" % q["title"]
 	if Quests.is_done(q):
-		return "เควส: กลับไปส่งเควสกับผู้ใหญ่บ้าน"
+		return "เควส: กลับไปส่งเควสกับ%s" % vi["chief"]
 	if q["type"] == "zodiac":
 		var z := Zodiac.get_data(q["target"])
 		if level < int(z["level"]):
 			return "เควส: ฝึกให้ถึง Lv.%d เพื่อพบ %s" % [int(z["level"]), Zodiac.display_name(z)]
-		return "เควส: ไปประลองกับ %s ที่บ้านผู้ใหญ่บ้าน" % Zodiac.display_name(z)
+		return "เควส: ไปประลองกับ %s ที่%s" % [Zodiac.display_name(z), vi["house_name"]]
 	var prog := Quests.progress_text(q)
 	return "เควส: %s%s" % [q["title"], " " + prog if prog != "" else ""]
 
@@ -352,9 +362,31 @@ func _quest_count(kind: String, target := "") -> void:
 		return
 	quest_progress += 1
 	if Quests.is_done(q):
-		banner.emit("%s ครบแล้ว! กลับไปหาผู้ใหญ่บ้าน" % q["title"])
+		banner.emit("%s ครบแล้ว! กลับไปหา%s" % [q["title"], Quests.giver(q)])
 	quest_changed.emit()
 	save_game()
+
+
+## มาถึงหมู่บ้านที่ n (ด้วยใบเบิกทาง): ปลดเลเวลตัน และถ้าเควสตอนนี้คือการเดินทางมาที่นี่ ถือว่าสำเร็จ
+func arrive_village(n: int) -> void:
+	home_village = n
+	if n <= village:
+		return
+	village = n
+	var q := current_quest()
+	if not q.is_empty() and q["type"] == "travel" and int(q["target"]) <= n:
+		quest_index += 1
+		quest_accepted = false
+		quest_progress = 0
+		quest_changed.emit()
+	banner.emit("มาถึง %s แล้ว!\nเลเวลตันเพิ่มเป็น %d" % [Quests.village_info(n)["name"], level_cap()])
+	Sound.play("quest")
+	save_game()
+
+
+## แผนที่หมู่บ้านที่กลับไปพักตอนหมดแรง
+func home_stage() -> String:
+	return str(Quests.village_info(home_village)["stage"])
 
 
 ## เลเวลตันของหมู่บ้านที่อยู่ตอนนี้
@@ -746,6 +778,7 @@ func save_game() -> void:
 	cfg.set_value("game", "quest_progress", quest_progress)
 	cfg.set_value("game", "village", village)
 	cfg.set_value("game", "travel_permit", travel_permit)
+	cfg.set_value("game", "home_village", home_village)
 	cfg.set_value("game", "zodiac_gifts", zodiac_gifts)
 	cfg.set_value("game", "craft_fails", craft_fails)
 	cfg.set_value("game", "level", level)
@@ -782,6 +815,7 @@ func load_game() -> void:
 		quest_progress = int(cfg.get_value("game", "frog_kills", 0)) if old == 1 else (5 if old == 2 else 0)
 	village = maxi(int(cfg.get_value("game", "village", 1)), 1)
 	travel_permit = maxi(int(cfg.get_value("game", "travel_permit", 1)), village)
+	home_village = clampi(int(cfg.get_value("game", "home_village", 1)), 1, village)
 	zodiac_gifts = cfg.get_value("game", "zodiac_gifts", [])
 	craft_fails = cfg.get_value("game", "craft_fails", {})
 	level = clampi(int(cfg.get_value("game", "level", 1)), 1, MAX_LEVEL)
@@ -820,6 +854,7 @@ func reset_save() -> void:
 	quest_progress = 0
 	village = 1
 	travel_permit = 1
+	home_village = 1
 	zodiac_gifts = []
 	craft_fails = {}
 	active_trial = ""
