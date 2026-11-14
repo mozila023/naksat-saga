@@ -36,22 +36,24 @@ func _ready() -> void:
 	# ไล่เงามืดบน-ล่าง ให้ตัวหนังสืออ่านง่าย
 	# (ด้านบนเป็นวงนักษัตร จึงมืดแค่เล็กน้อย ส่วนแถบกลางที่มีโลโก้มืดลงให้อ่านง่าย)
 	_root.add_child(_shade(Color(0.05, 0.03, 0.12, 0.25), Color(0.05, 0.03, 0.12, 0.0), 0.0, 0.3))
-	_root.add_child(_band(0.33, 0.54))
+	_root.add_child(_shade(Color(0.05, 0.03, 0.12, 0.5), Color(0.05, 0.03, 0.12, 0.0), 0.0, 0.22))
 	_root.add_child(_shade(Color(0.05, 0.03, 0.12, 0.0), Color(0.05, 0.03, 0.12, 0.85), 0.62, 1.0))
 
 	# โลโก้ชื่อเกม
 	_logo = Control.new()
-	_logo.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_logo.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_logo)
-	# วางโลโก้ใต้วงนักษัตร (ไม่บังมังกรตรงกลางบน) เหนือหัวตัวเอก
-	_logo.add_child(_text("NAKSAT SAGA", 82, Color(0.25, 0.08, 0.02), Vector2(-640, 242), 0, Color.BLACK))
-	_logo.add_child(_text("NAKSAT SAGA", 82, Color(1.0, 0.82, 0.25), Vector2(-640, 236), 16, Color(0.35, 0.12, 0.04)))
-	_logo.add_child(_text("ตำนาน 12 นักษัตร", 36, Color(1.0, 0.97, 0.85), Vector2(-640, 338), 10, Color(0.35, 0.12, 0.04)))
+	# โลโก้มุมซ้ายบน (กลางภาพเป็นวงนักษัตร มีพญานาคอยู่กลาง และตัวเอก 2 คนอยู่ล่าง ห้ามบัง)
+	for t in [_text("NAKSAT SAGA", 62, Color(0.25, 0.08, 0.02), Vector2(4, 6), 0, Color.BLACK),
+			_text("NAKSAT SAGA", 62, Color(1.0, 0.82, 0.25), Vector2(0, 0), 14, Color(0.35, 0.12, 0.04)),
+			_text("ตำนาน 12 นักษัตร", 30, Color(1.0, 0.97, 0.85), Vector2(6, 82), 9, Color(0.35, 0.12, 0.04))]:
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_logo.add_child(t)
 
-	_prompt = _text("คลิกเพื่อเริ่มเกม", 40, Color.WHITE, Vector2(-640, -150), 10, Color(0.2, 0.1, 0.05))
+	_prompt = _text("คลิกเพื่อเริ่มเกม", 32, Color.WHITE, Vector2(-640, -150), 10, Color(0.2, 0.1, 0.05))
 	_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_prompt.position = Vector2(-640, -96)
+	_prompt.position = Vector2(-640, -54)
 	_root.add_child(_prompt)
 
 
@@ -137,9 +139,10 @@ func _process(delta: float) -> void:
 	var vs := _root.get_viewport_rect().size
 	var sc := maxf(vs.x / 1280.0, vs.y / 715.0)
 	var top := (vs.y - 715.0 * sc) * 0.5
-	var logo_sc := minf(sc, vs.x / 960.0)  # จอแคบ (แนวตั้ง) ย่อโลโก้ให้พอดีความกว้าง
+	var left := (vs.x - 1280.0 * sc) * 0.5
+	var logo_sc := minf(sc, (vs.x - 40.0) / 480.0)  # จอแคบ (แนวตั้ง) ย่อโลโก้ให้พอดีความกว้าง
 	_logo.scale = Vector2(logo_sc, logo_sc)
-	_logo.position.y = top + 236.0 * (sc - logo_sc) + sin(_t * 1.6) * 6.0 * sc
+	_logo.position = Vector2(maxf(left + 26.0 * sc, 20.0), top + 12.0 * sc + sin(_t * 1.6) * 4.0 * sc)
 
 
 func _input(event: InputEvent) -> void:

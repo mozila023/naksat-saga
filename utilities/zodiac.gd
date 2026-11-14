@@ -38,7 +38,7 @@ const LIST := [
 		],
 		"win": "ใจเด็ดสมเป็นนักสู้! พลังปีขาลเป็นของเจ้าแล้ว รับชิ้นส่วนของข้าไปให้ช่างตีเป็นชุดได้"},
 	{"id": "rabbit", "year": "เถาะ", "animal": "กระต่าย", "level": 40, "ready": false},
-	{"id": "dragon", "year": "มะโรง", "animal": "มังกร", "level": 50, "ready": false},
+	{"id": "naga", "year": "มะโรง", "animal": "พญานาค", "level": 50, "ready": false},
 	{"id": "snake", "year": "มะเส็ง", "animal": "งูเล็ก", "level": 60, "ready": false},
 	{"id": "horse", "year": "มะเมีย", "animal": "ม้า", "level": 70, "ready": false},
 	{"id": "goat", "year": "มะแม", "animal": "แพะ", "level": 80, "ready": false},
