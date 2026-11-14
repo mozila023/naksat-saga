@@ -225,6 +225,8 @@ func _physics_process(delta: float) -> void:
 	visual.moving = absf(velocity.x) > 10.0 and is_on_floor()
 	visual.in_air = not is_on_floor()
 	visual.swing = 1.0 - _swing_t / SWING_TIME if _swing_t > 0.0 else -1.0
+	var wep: String = Game.equipped.get("weapon", "")
+	visual.weapon_icon = Game.ITEMS[wep]["icon"] if wep != "" else ""  # อาวุธที่ถือเปลี่ยนตามของที่สวม
 	visual.modulate.a = 0.45 if _invuln > 0.0 and int(_invuln * 16.0) % 2 == 0 else 1.0
 
 

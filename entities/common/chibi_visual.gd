@@ -30,6 +30,21 @@ var _blink_offset := randf() * 3.0
 var _sprite: Sprite2D
 var _sprite_path := ""
 
+# ---------- อาวุธที่ถือ (เปลี่ยนตามอาวุธที่สวมในช่องอาวุธ) ----------
+## ไอคอนอาวุธ (ชื่อไฟล์ item_<ชื่อ>.png) "" = ไม่ถือ
+var weapon_icon := ""
+var _wep_hand: Sprite2D
+var _wep_back: Sprite2D
+var _wep_key := ""
+# ตำแหน่งมือในภาพท่าตีแต่ละเฟรม (พิกัดในไฟล์ภาพ 360x300 เท้าอยู่กึ่งกลางล่าง) และทิศของอาวุธ (องศา, 0 = ชี้ไปหน้า)
+#   normal = ร่างปกติ (ถือไม้), paw = ร่างนักษัตร (ตอนนี้ร่างนักษัตรไม่แสดงอาวุธ เก็บไว้เผื่อใช้)
+const GRIPS := {
+	"normal": [[Vector2(128, 138), -112.0], [Vector2(288, 186), -4.0], [Vector2(158, 236), 42.0]],
+	"paw": [[Vector2(232, 114), -100.0], [Vector2(326, 184), -6.0], [Vector2(266, 266), 38.0]],
+}
+const BACK_GRIP := [Vector2(150, 206), -122.0]  # ตอนไม่ได้ตี: สะพายหลังเฉียง ๆ
+const ICON_HANDLE := Vector2(12, 52)  # จุดด้ามจับในไอคอน 64x64 (ไอคอนอาวุธวาดเฉียง ด้ามล่างซ้าย ปลายขวาบน)
+
 
 func _process(delta: float) -> void:
 	_t += delta
@@ -140,11 +155,58 @@ func _update_frames(delta: float) -> void:
 	_fsprite.position = pos
 	_fsprite.rotation = rot
 	_fsprite.scale = Vector2(0.5, 0.5 * sy)
+	var attack_frame := -1
+	if hurt <= 0.0 and swing >= 0.0:
+		attack_frame = 0 if swing < 0.22 else (1 if swing < 0.62 else 2)
+	elif hurt <= 0.0 and cast > 0.0:
+		attack_frame = 0
+	_update_weapon(attack_frame, pos, sy)
 	if _flash > 0.0:
 		_flash -= delta
 		_fsprite.modulate = Color.WHITE.lerp(_flash_color, clampf(_flash / _flash_time, 0.0, 1.0))
 	else:
 		_fsprite.modulate = Color.WHITE
+
+
+## วาดอาวุธ: ตอนตีอยู่ในมือตามท่า ตอนอื่นสะพายหลัง
+func _update_weapon(attack_frame: int, pos: Vector2, sy: float) -> void:
+	if _wep_hand == null:
+		_wep_back = Sprite2D.new()
+		_wep_back.centered = false
+		_wep_back.z_index = -1  # อยู่หลังตัวละคร
+		add_child(_wep_back)
+		_wep_hand = Sprite2D.new()
+		_wep_hand.centered = false
+		_wep_hand.z_index = 1   # อยู่หน้าตัวละคร
+		add_child(_wep_hand)
+	if weapon_icon != _wep_key:
+		_wep_key = weapon_icon
+		var path := "res://assets/art/items/item_%s.png" % weapon_icon
+		var tex: Texture2D = load(path) if weapon_icon != "" and ResourceLoader.exists(path) else null
+		for s in [_wep_hand, _wep_back]:
+			s.texture = tex
+			s.offset = -ICON_HANDLE
+	# ถืออาวุธเฉพาะร่างปกติ (ร่างแปลงนักษัตรสู้ด้วยอุ้งมือ ไม่แสดงอาวุธ)
+	if _wep_hand.texture == null or not outfit.has("grip"):
+		_wep_hand.visible = false
+		_wep_back.visible = false
+		return
+	var grip: Array
+	var s: Sprite2D
+	if attack_frame >= 0:
+		grip = GRIPS[outfit.get("grip", "paw")][attack_frame]
+		s = _wep_hand
+		_wep_back.visible = false
+	else:
+		grip = BACK_GRIP
+		s = _wep_back
+		_wep_hand.visible = false
+	s.visible = true
+	var p: Vector2 = grip[0]
+	s.position = pos + Vector2((p.x - 180.0) * 0.5, (p.y - 300.0) * 0.5 * sy)
+	s.rotation = deg_to_rad(float(grip[1]) + 45.0)
+	s.scale = Vector2(0.62, 0.62) if attack_frame >= 0 else Vector2(0.52, 0.52)
+	s.modulate = _fsprite.modulate * (Color.WHITE if attack_frame >= 0 else Color(0.85, 0.85, 0.85))
 
 
 func _update_sprite() -> void:

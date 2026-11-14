@@ -24,6 +24,7 @@ const LIST := [
 			"ears": "",
 			"sprite": "res://assets/art/hero_normal.png",
 			"frames": "res://assets/art/frames/hero_normal_",
+			"grip": "normal",  # ตำแหน่งมือในท่าตี (ดู ChibiVisual.GRIPS)
 			"rig": {"head_y": 0.535, "hip_y": 0.81, "arm_l": 0.335, "arm_r": 0.715, "leg_split": 0.52},
 			"weapon_kind": "sword",
 			"stripes": false,
