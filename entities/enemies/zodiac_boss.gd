@@ -258,7 +258,10 @@ func take_hit(dmg: float, _dir: float, _stun: float) -> void:
 		Game.spawn_text(global_position + Vector2(-70, -SIZE.y - 80.0), "เอาจริงแล้วนะ!", Color(1.0, 0.4, 0.3), 46)
 		Game.shake(10.0, 0.5)
 		Sound.play("roar", 0.02, 2.0)
-	Game.spawn_number(global_position + Vector2(0, -SIZE.y - 20.0), str(int(dmg)), Color(1, 0.95, 0.5))
+	if Game.hit_is_crit:
+		Game.spawn_number(global_position + Vector2(0, -SIZE.y - 30.0), str(int(dmg)), Color(1.0, 0.5, 0.15), 44)
+	else:
+		Game.spawn_number(global_position + Vector2(0, -SIZE.y - 20.0), str(int(dmg)), Color(1, 0.95, 0.5))
 	if hp <= 0.0:
 		hp = 0.0
 		_dead = true

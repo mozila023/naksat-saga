@@ -146,7 +146,10 @@ func take_hit(dmg: float, dir: float, stun: float) -> void:
 	_flash = 0.15
 	_stun = maxf(_stun, maxf(0.28, stun))
 	velocity = Vector2(dir * 230.0, -170.0)
-	Game.spawn_number(global_position + Vector2(0, -_stats["size"].y), str(int(dmg)), Color(1, 0.95, 0.5))
+	if Game.hit_is_crit:
+		Game.spawn_number(global_position + Vector2(0, -_stats["size"].y - 10), str(int(dmg)), Color(1.0, 0.5, 0.15), 40)
+	else:
+		Game.spawn_number(global_position + Vector2(0, -_stats["size"].y), str(int(dmg)), Color(1, 0.95, 0.5))
 	_pop = 1.0
 	var mid: Vector2 = global_position + Vector2(-dir * 8.0, -_stats["size"].y * 0.55)
 	Fx.spawn(get_parent(), mid, "spark", Vector2(38, 38), Color(1.0, 0.85, 0.35), 1, 0.22)

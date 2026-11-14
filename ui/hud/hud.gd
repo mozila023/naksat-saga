@@ -40,6 +40,12 @@ var _lines: Array = []
 var _line_index := 0
 var _dlg_delay := 0.0
 var _mute_btn: Button
+var _speaker: SpeakerIcon
+var _skill_holder: Control
+var _hot_holder: Control
+var _touch_root: Control
+var _touch: Array = []  # [{action, btn, label, r, skill}]
+var _portrait := false
 var _craft: Panel
 var _craft_list: VBoxContainer
 var _craft_money: Label
@@ -83,6 +89,8 @@ func _ready() -> void:
 	_refresh_hp()
 	_refresh_form()
 	_refresh_quest()
+	get_viewport().size_changed.connect(_on_screen_resized)
+	_on_screen_resized.call_deferred()
 
 
 # ---------- ตัวช่วยสร้าง UI ----------
@@ -196,6 +204,11 @@ func _build_status() -> void:
 		_mute_btn.add_theme_stylebox_override(st, mb_style)
 	_mute_btn.pressed.connect(_toggle_mute)
 	_root.add_child(_mute_btn)
+	_speaker = SpeakerIcon.new()
+	_speaker.position = Vector2(8, 8)
+	_speaker.size = Vector2(30, 30)
+	_speaker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mute_btn.add_child(_speaker)
 	_refresh_mute()
 
 
@@ -238,6 +251,7 @@ func _refresh_stats() -> void:
 
 func _build_hotbar() -> void:
 	var holder := Control.new()
+	_hot_holder = holder
 	var touch := DisplayServer.is_touchscreen_available()
 	holder.set_anchors_preset(Control.PRESET_TOP_RIGHT if touch else Control.PRESET_BOTTOM_RIGHT)
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -511,11 +525,11 @@ func _build_craft() -> void:
 	_craft_money.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_craft.add_child(_craft_money)
 	var close := Button.new()
-	close.text = "✕"
+	close.text = "×"
 	close.focus_mode = Control.FOCUS_NONE
 	close.position = Vector2(620, 14)
 	close.size = Vector2(44, 40)
-	close.add_theme_font_size_override("font_size", 20)
+	close.add_theme_font_size_override("font_size", 30)
 	close.pressed.connect(close_craft)
 	_craft.add_child(close)
 	var scroll := ScrollContainer.new()
@@ -547,11 +561,11 @@ func _make_window(title_text: String, on_close: Callable) -> Array:
 	money.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	panel.add_child(money)
 	var close := Button.new()
-	close.text = "✕"
+	close.text = "×"
 	close.focus_mode = Control.FOCUS_NONE
 	close.position = Vector2(620, 14)
 	close.size = Vector2(44, 40)
-	close.add_theme_font_size_override("font_size", 20)
+	close.add_theme_font_size_override("font_size", 30)
 	close.pressed.connect(on_close)
 	panel.add_child(close)
 	var scroll := ScrollContainer.new()
@@ -732,10 +746,9 @@ func _toggle_mute() -> void:
 func _refresh_mute() -> void:
 	if _mute_btn == null:
 		return
-	_mute_btn.text = "✕" if Sound.muted else "♪"
-	var col := Color(0.75, 0.3, 0.3) if Sound.muted else Color(0.3, 0.18, 0.08)
-	for st in ["font_color", "font_hover_color", "font_pressed_color"]:
-		_mute_btn.add_theme_color_override(st, col)
+	# ฟอนต์เกมไม่มีตัวโน้ต/กากบาท (บนเว็บจะเป็นกล่อง) จึงวาดรูปลำโพงเอง
+	_speaker.muted = Sound.muted
+	_speaker.queue_redraw()
 
 
 
@@ -825,6 +838,7 @@ func _refresh_quest() -> void:
 
 func _build_skill_bar() -> void:
 	var holder := Control.new()
+	_skill_holder = holder
 	holder.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(holder)
@@ -1002,6 +1016,7 @@ func _process(delta: float) -> void:
 	if Game.in_dialogue and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("attack") or Input.is_action_just_pressed("jump")):
 		_advance_dialogue()
 
+	_update_touch_skills()
 	var p := Game.player
 	if p:
 		var form := Game.current_form()
@@ -1024,48 +1039,163 @@ func _process(delta: float) -> void:
 
 
 # ---------- ปุ่มสัมผัสสำหรับมือถือ ----------
+# ตำแหน่งปุ่ม (จุดกึ่งกลาง, รัศมี) วัดจากมุมล่างซ้าย (L) หรือมุมล่างขวา (R) ของจอ
+# จอแนวนอน: ซ้าย = เดิน, ขวา = ตี + วิ่ง + กระโดด + สกิลล้อมปุ่มตี
+const TOUCH_LANDSCAPE := {
+	"move_left": ["L", Vector2(95, -125), 66], "move_right": ["L", Vector2(255, -125), 66],
+	"move_down": ["L", Vector2(175, -255), 44],
+	"attack": ["R", Vector2(-120, -130), 78], "run": ["R", Vector2(-270, -250), 52],
+	"jump": ["R", Vector2(-280, -95), 58], "skill_1": ["R", Vector2(-420, -110), 48],
+	"skill_2": ["R", Vector2(-400, -240), 48], "skill_3": ["R", Vector2(-150, -300), 48],
+	"use_potion": ["R", Vector2(-545, -95), 40], "interact": ["R", Vector2(-290, -380), 42],
+	"form_next": ["R", Vector2(-130, -440), 40], "bag": ["R", Vector2(-420, -370), 38],
+}
+# จอแนวตั้ง: ปุ่มอยู่ใต้พื้นดิน (ครึ่งล่างของจอ) ช่องไอเทม 1-7 อยู่แถวล่างสุด
+const TOUCH_PORTRAIT := {
+	"move_left": ["L", Vector2(75, -250), 56], "move_right": ["L", Vector2(205, -250), 56],
+	"move_down": ["L", Vector2(140, -375), 42],
+	"attack": ["R", Vector2(-115, -265), 74], "run": ["R", Vector2(-250, -370), 48],
+	"jump": ["R", Vector2(-255, -195), 54], "skill_1": ["R", Vector2(-390, -270), 44],
+	"skill_2": ["R", Vector2(-385, -410), 44], "skill_3": ["R", Vector2(-115, -425), 44],
+	"use_potion": ["L", Vector2(245, -395), 38], "interact": ["R", Vector2(-250, -505), 42],
+	"form_next": ["R", Vector2(-115, -545), 40], "bag": ["L", Vector2(50, -480), 36],
+}
+const TOUCH_TEXT := {"move_left": "◀", "move_right": "▶", "move_down": "▼", "attack": "ตี", "run": "วิ่ง",
+	"jump": "โดด", "use_potion": "ยา", "interact": "คุย", "form_next": "ร่าง", "bag": "ของ"}
+const TOUCH_TEX_R := 64.0
+
 
 func _build_touch() -> void:
-	var left := Control.new()
-	left.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_root.add_child(left)
-	_touch_button(left, Vector2(30, -170), 60, "◀", "move_left")
-	_touch_button(left, Vector2(170, -170), 60, "▶", "move_right")
-	_touch_button(left, Vector2(40, -290), 46, "▼", "move_down")
-	_touch_button(left, Vector2(180, -290), 46, "วิ่ง", "run")
-
-	var right := Control.new()
-	right.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_root.add_child(right)
-	_touch_button(right, Vector2(-150, -170), 64, "ตี", "attack")
-	_touch_button(right, Vector2(-290, -150), 54, "โดด", "jump")
-	_touch_button(right, Vector2(-380, -260), 44, "1", "skill_1")
-	_touch_button(right, Vector2(-270, -290), 44, "2", "skill_2")
-	_touch_button(right, Vector2(-160, -320), 44, "3", "skill_3")
-	_touch_button(right, Vector2(-110, -440), 40, "ร่าง", "form_next")
-	_touch_button(right, Vector2(-230, -420), 40, "คุย", "interact")
-	_touch_button(right, Vector2(-350, -390), 40, "ยา", "use_potion")
-	_touch_button(right, Vector2(-110, -560), 40, "ของ", "bag")
+	_touch_root = Control.new()
+	_touch_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_touch_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_touch_root)
+	var tex := _circle_tex(int(TOUCH_TEX_R))
+	for action in TOUCH_LANDSCAPE:
+		var btn := TouchScreenButton.new()
+		btn.texture_normal = tex
+		btn.action = action
+		_touch_root.add_child(btn)
+		var l := _label(TOUCH_TEXT.get(action, ""), 24, Color.WHITE, 6)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_touch_root.add_child(l)
+		var skill := int(action.trim_prefix("skill_")) - 1 if action.begins_with("skill_") else -1
+		_touch.append({"action": action, "btn": btn, "label": l, "skill": skill})
+	_layout_touch()
 
 
-func _touch_button(parent: Control, pos: Vector2, radius: int, text: String, action: String) -> void:
+func _circle_tex(radius: int) -> ImageTexture:
 	var img := Image.create(radius * 2, radius * 2, false, Image.FORMAT_RGBA8)
 	var c := Vector2(radius, radius)
 	for y in radius * 2:
 		for x in radius * 2:
 			var d := Vector2(x + 0.5, y + 0.5).distance_to(c)
-			if d <= radius - 4:
-				img.set_pixel(x, y, Color(1, 1, 1, 0.35))
+			if d <= radius - 5:
+				img.set_pixel(x, y, Color(1, 1, 1, 0.32))
 			elif d <= radius:
 				img.set_pixel(x, y, Color(0.1, 0.08, 0.05, 0.6))
-	var btn := TouchScreenButton.new()
-	btn.texture_normal = ImageTexture.create_from_image(img)
-	btn.action = action
-	btn.position = pos
-	parent.add_child(btn)
-	var l := _label(text, int(radius * 0.6), Color.WHITE, 6)
-	l.position = pos
-	l.size = Vector2(radius * 2, radius * 2)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	parent.add_child(l)
+	return ImageTexture.create_from_image(img)
+
+
+## วางปุ่มสัมผัสตามแนวจอ
+func _layout_touch() -> void:
+	if _touch_root == null:
+		return
+	var vs := get_viewport().get_visible_rect().size
+	var table: Dictionary = TOUCH_PORTRAIT if _portrait else TOUCH_LANDSCAPE
+	for t in _touch:
+		var spec: Array = table[t["action"]]
+		var corner := Vector2(0, vs.y) if spec[0] == "L" else vs
+		var center: Vector2 = corner + spec[1]
+		var r := float(spec[2])
+		var btn: TouchScreenButton = t["btn"]
+		btn.scale = Vector2.ONE * (r / TOUCH_TEX_R)
+		btn.position = center - Vector2(r, r)
+		var l: Label = t["label"]
+		l.position = center - Vector2(r, r)
+		l.size = Vector2(r * 2, r * 2)
+		l.add_theme_font_size_override("font_size", int(r * (0.34 if t["skill"] >= 0 else 0.5)))
+		t["r"] = r
+
+
+## ชื่อสกิลบนปุ่ม + นับถอยหลังคูลดาวน์ (ใช้แทนแถบสกิลด้านล่างเวลาเล่นบนมือถือ)
+func _update_touch_skills() -> void:
+	if _touch_root == null or Game.player == null:
+		return
+	var form := Game.current_form()
+	for t in _touch:
+		if t["skill"] < 0:
+			continue
+		var cd := Game.player.get_cd(t["skill"])
+		var l: Label = t["label"]
+		var btn: TouchScreenButton = t["btn"]
+		var key := "%s:%d" % [form["id"], ceili(cd)]
+		if t.get("shown", "") == key:
+			continue  # ไม่เปลี่ยน ไม่ต้องตั้งค่าใหม่ทุกเฟรม
+		t["shown"] = key
+		if cd > 0.0:
+			l.text = "%d" % ceili(cd)
+			l.add_theme_font_size_override("font_size", int(float(t["r"]) * 0.6))
+			btn.modulate = Color(0.45, 0.45, 0.5)
+		else:
+			l.text = form["skills"][t["skill"]]["name"]
+			l.add_theme_font_size_override("font_size", int(float(t["r"]) * 0.34))
+			btn.modulate = Color(1.0, 0.9, 0.6)
+
+
+## วางหน้าต่างที่ยึดกึ่งกลางจอ ให้มุมซ้ายบนห่างจากกึ่งกลางเท่า off
+func _place(ctrl: Control, off: Vector2) -> void:
+	var sz := ctrl.size
+	ctrl.offset_left = off.x
+	ctrl.offset_top = off.y
+	ctrl.offset_right = off.x + sz.x
+	ctrl.offset_bottom = off.y + sz.y
+
+
+## จอเปลี่ยนขนาด / หมุนจอ: จอแนวตั้งใช้พื้นที่วาดกว้าง 720 (ตัวละครและปุ่มใหญ่ขึ้น) แนวนอนกว้าง 1280
+func _on_screen_resized() -> void:
+	var win := get_tree().root
+	var real := Vector2(win.size)
+	var portrait := real.y > real.x * 1.05
+	var want := Vector2i(720, 1280) if portrait else Vector2i(1280, 720)
+	if win.content_scale_size != want:
+		win.content_scale_size = want
+	_portrait = portrait
+	var touch := _touch_root != null
+	# แถบสกิลด้านล่าง: ซ่อนเมื่อมีปุ่มสัมผัส (ปุ่มสกิลบอกคูลดาวน์เอง)
+	_skill_holder.visible = not touch
+	# ช่องไอเทม 1-7
+	if portrait:
+		_hot_holder.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+		for i in _hot_slots.size():
+			_hot_slots[i].position = Vector2(-Game.HOTBAR_SIZE * 31.0 + i * 62.0 + 3.0, -72)
+	else:
+		_hot_holder.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT if touch else Control.PRESET_BOTTOM_RIGHT)
+		for i in _hot_slots.size():
+			_hot_slots[i].position = Vector2(-16 - (Game.HOTBAR_SIZE - i) * 62.0, 16 if touch else -78)
+	# กระเป๋า + หน้าตัวละคร: แนวตั้งวางซ้อนบนล่าง
+	if portrait:
+		_place(_char, Vector2(-154, -610))
+		_place(_bag, Vector2(-300, -30))
+	else:
+		_place(_char, Vector2(-470, -260))
+		_place(_bag, Vector2(-150, -260))
+	_layout_touch()
+	if Game.player and is_instance_valid(Game.player):
+		Game.player.apply_view()
+
+## รูปลำโพง (ปุ่มเปิด/ปิดเสียง)
+class SpeakerIcon extends Control:
+	var muted := false
+
+	func _draw() -> void:
+		var col := Color(0.75, 0.3, 0.3) if muted else Color(0.3, 0.18, 0.08)
+		draw_colored_polygon(PackedVector2Array([Vector2(3, 11), Vector2(9, 11), Vector2(16, 4), Vector2(16, 26), Vector2(9, 19), Vector2(3, 19)]), col)
+		if muted:
+			draw_line(Vector2(20, 10), Vector2(28, 20), col, 3.0, true)
+			draw_line(Vector2(28, 10), Vector2(20, 20), col, 3.0, true)
+		else:
+			draw_arc(Vector2(16, 15), 6.0, -0.9, 0.9, 10, col, 2.5, true)
+			draw_arc(Vector2(16, 15), 11.0, -0.9, 0.9, 12, col, 2.5, true)

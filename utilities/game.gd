@@ -83,6 +83,9 @@ var equipped := {}  # รหัสช่อง -> รหัสไอเทมท
 const HOTBAR_SIZE := 7
 var hotbar: Array = ["", "", "", "", "", "", ""]  # ช่องไอเทม 1-7 (รหัสไอเทม หรือ "" = ว่าง)
 
+var pending_crit := false  # ดาเมจที่เพิ่งคิดเป็นคริติคอลไหม (Player ตั้ง, hit_enemies ใช้แล้วล้าง)
+var hit_is_crit := false   # ระหว่างตีโดนแต่ละตัว: เป็นคริติคอลไหม (ให้ตัวเลขดาเมจใหญ่ขึ้น)
+const BASE_CRIT := 0.08  # โอกาสคริติคอลพื้นฐาน 8%
 var in_dialogue := false
 var in_title := false  # กำลังแสดงหน้าปกเกม (ล็อกการควบคุม)
 var _dialogue_done := Callable()
@@ -186,16 +189,40 @@ func set_hp(value: float) -> void:
 # ---------- ต่อสู้ ----------
 
 ## ตีศัตรูทุกตัวที่อยู่ในกรอบ rect คืนค่าจำนวนตัวที่โดน
+## (ถ้าดาเมจนี้เป็นคริติคอล — pending_crit ที่ Player ตั้งไว้ตอนคิดดาเมจ — จะมีเอฟเฟกต์พิเศษ)
 func hit_enemies(rect: Rect2, dmg: float, from_x: float, stun := 0.0, skip: Array = []) -> int:
 	var count := 0
+	var crit := pending_crit
+	pending_crit = false
+	hit_is_crit = crit
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if e in skip or not e.is_alive():
 			continue
 		if rect.intersects(e.get_hurt_rect()):
+			var hr: Rect2 = e.get_hurt_rect()
 			e.take_hit(dmg, signf(e.global_position.x - from_x), stun)
 			skip.append(e)
 			count += 1
+			if crit:
+				_crit_fx(Vector2(hr.get_center().x, hr.position.y + hr.size.y * 0.35))
+	hit_is_crit = false
+	if crit and count > 0:
+		Sound.play("heavy_hit", 0.05)
+		shake(9.0, 0.22)
+		hit_stop(0.09)
 	return count
+
+
+## เอฟเฟกต์ตีคริติคอล: แสงระเบิดสีทอง วงคลื่น ดาวกระจาย และคำว่า CRITICAL!
+func _crit_fx(pos: Vector2) -> void:
+	if main == null or main.stage == null:
+		return
+	var parent: Node = main.stage
+	Fx.spawn(parent, pos, "ring", Vector2(170, 170), Color(1.0, 0.75, 0.2), 1, 0.4)
+	Fx.spawn(parent, pos, "burst", Vector2(90, 18), Color(1.0, 0.92, 0.55), 1, 0.35)
+	Fx.spawn(parent, pos, "spark", Vector2(110, 110), Color(1.0, 0.55, 0.15), 1, 0.3)
+	Fx.spawn(parent, pos + Vector2(0, 10), "star", Vector2(70, 150), Color(1.0, 0.85, 0.3), 1, 0.7)
+	spawn_text(pos + Vector2(-95, -70), "CRITICAL!", Color(1.0, 0.62, 0.15), 40)
 
 
 ## สั่นจอ (amount = ความแรงเป็นพิกเซล)

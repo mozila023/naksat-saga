@@ -28,8 +28,11 @@ func shot(shot_name: String) -> void:
 
 
 func tap(action: String) -> void:
+	# กดค้างอย่างน้อย 3 เฟรมฟิสิกส์ และ 2 เฟรมภาพ (ตอนภาพช้า ฟิสิกส์อาจวิ่งหลายรอบใน 1 เฟรมภาพ)
 	Input.action_press(action)
 	await frames(3)
+	await get_tree().process_frame
+	await get_tree().process_frame
 	Input.action_release(action)
 	await frames(3)
 
@@ -224,7 +227,7 @@ func _ready() -> void:
 	Game.add_item("potion", 1)
 	Game.set_hp(10.0)
 	await tap("slot_6")
-	check(Game.hp > 10.0, "number key uses the slot item")
+	check(Game.hp > 10.0, "number key uses the slot item (hp %d, bar %s, dead %s, dlg %s)" % [Game.hp, str(Game.hotbar), str(p.dead), str(Game.in_dialogue)])
 	Game.add_item("frog_leg", 3)
 	Game.money = 100
 	await frames(400)
@@ -287,6 +290,13 @@ func _ready() -> void:
 	check(Game.in_dialogue and main.stage_id == "rice_field", "demon lair sealed below Lv.15")
 	Game.end_dialogue()
 	main.hud._dialogue.visible = false
+	p.global_position.x = 6000.0
+	await frames(60)
+	Game.pending_crit = true
+	Game.hit_enemies(Rect2(5000, -2000, 2000, 4000), 1.0, 6000.0)
+	check(not Game.pending_crit and not Game.hit_is_crit, "critical flags reset after a hit")
+	await frames(6)
+	await shot("05f_critical")
 	await kill_all(2)
 	check(Quests.is_done(Game.current_quest()), "mushroom quest done (%s)" % Game.quest_text())
 	main.change_stage("chief_house", "entrance")

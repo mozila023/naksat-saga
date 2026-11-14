@@ -91,9 +91,19 @@ func _apply_form() -> void:
 func set_camera_limits(stage_width: float) -> void:
 	camera.limit_left = 0
 	camera.limit_right = int(stage_width)
-	camera.limit_bottom = 720
-	camera.limit_top = -700
+	apply_view()
 	camera.reset_smoothing()
+
+
+## ขอบกล้องตามแนวจอ: จอแนวตั้งให้พื้นอยู่ราว 62% ของความสูงจอ (ครึ่งล่างเป็นที่วางปุ่มสัมผัส)
+func apply_view() -> void:
+	var vs := get_viewport().get_visible_rect().size
+	if vs.y > vs.x:
+		camera.limit_bottom = int(Stage.GROUND_Y + vs.y * 0.38)
+		camera.limit_top = -4000
+	else:
+		camera.limit_bottom = 720
+		camera.limit_top = -700
 
 
 func shake(amount: float, time := 0.2) -> void:
@@ -243,7 +253,9 @@ func _tick_timers(delta: float) -> void:
 func _damage(mult: float) -> float:
 	var dmg := (BASE_ATK + Game.equip_bonus("atk")) * Game.atk_mult() * float(Game.current_form()["atk"]) * mult * randf_range(0.9, 1.1)
 	dmg *= 1.0 + Game.set_effect("atk_mult")  # เซ็ทขาล 3 ชิ้น
-	if randf() < Game.set_effect("crit"):  # เซ็ทขาล 5 ชิ้น: คริติคอล ดาเมจ 2 เท่า
+	# คริติคอล: ทุกคนมีโอกาสพื้นฐาน + เซ็ทขาล 5 ชิ้นเพิ่มให้ — ดาเมจ 2 เท่า พร้อมเอฟเฟกต์พิเศษ
+	Game.pending_crit = randf() < Game.BASE_CRIT + Game.set_effect("crit")
+	if Game.pending_crit:
 		dmg *= 2.0
 	return dmg
 

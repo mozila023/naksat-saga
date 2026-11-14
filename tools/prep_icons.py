@@ -21,15 +21,20 @@ def key_out(im):
 
 args = sys.argv[1:]
 out_dir = "assets/art/items"
+DILATE = 8  # ระยะรวมชิ้นส่วนเล็ก ๆ ของไอคอนเดียวกัน (ไอคอนชิดกันมากให้ลดลงด้วย --dilate)
 if "--out" in args:
     i = args.index("--out")
     out_dir = args[i + 1]
+    del args[i:i + 2]
+if "--dilate" in args:
+    i = args.index("--dilate")
+    DILATE = int(args[i + 1])
     del args[i:i + 2]
 src, names = args[0], args[1:]
 
 rgba = key_out(Image.open(src))
 solid = rgba[..., 3] > 128
-lab, n = ndimage.label(ndimage.binary_dilation(solid, iterations=8))
+lab, n = ndimage.label(ndimage.binary_dilation(solid, iterations=DILATE))
 boxes = [s for s in ndimage.find_objects(lab) if (s[0].stop - s[0].start) > 30 and (s[1].stop - s[1].start) > 20]
 # จัดเป็นแถวตามตำแหน่งกึ่งกลางแนวตั้ง แล้วเรียงซ้ายไปขวาในแต่ละแถว
 boxes.sort(key=lambda s: (s[0].start + s[0].stop) / 2)

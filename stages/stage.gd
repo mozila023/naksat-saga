@@ -24,6 +24,8 @@ var _spawners: Array = []
 var _t := 0.0
 var _layered := false
 var _road_top := 0.0
+var _ground_bottom := 666.0  # ขอบล่างของแถบถนน (ต่ำกว่านี้เติมสีดิน)
+var _under_color := Color(0.26, 0.21, 0.2)
 
 
 func _ready() -> void:
@@ -69,6 +71,8 @@ func _make_art_background() -> void:
 		# ภาพเดียวทั้งฉาก (เช่น ในถ้ำ): วิวเลื่อนช้ากว่าตัวละคร ส่วนพื้นเลื่อนเท่าตัวละคร
 		_add_art_layer(bg, s, 0.0, 0.5, -10)
 	_add_art_layer(ground, s, road_top - 1.0, 1.0, -9)
+	_ground_bottom = road_top - 1.0 + ground.get_height() * s
+	_under_color = ground.get_image().get_pixel(8, ground.get_height() - 2)
 
 
 func _add_art_layer(tex: Texture2D, s: float, y: float, scroll: float, z: int) -> void:
@@ -273,6 +277,9 @@ func _draw() -> void:
 	var cx := _view_center_x()
 	var x0 := cx - 1400.0
 	var x1 := cx + 1400.0
+	# ใต้ดิน (เห็นตอนจอแนวตั้ง): เติมสีดินต่อจากแถบถนนลงไป
+	Art.vgrad(self, Rect2(x0, _ground_bottom - 1.0, x1 - x0, 300.0), _under_color, _under_color.darkened(0.45))
+	draw_rect(Rect2(x0, _ground_bottom + 298.0, x1 - x0, 2000.0), _under_color.darkened(0.45))
 	if not has_art():
 		_draw_ground(x0, x1)
 	elif _layered:
