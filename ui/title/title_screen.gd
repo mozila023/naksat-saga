@@ -21,11 +21,20 @@ func _ready() -> void:
 	add_child(_root)
 
 	if ResourceLoader.exists(COVER):
+		# ภาพปกแสดงเต็มภาพเสมอ (ไม่ถูกตัด) ส่วนที่เหลือของจอเติมด้วยภาพเดียวกันแบบขยายและมืดลง
+		var back := TextureRect.new()
+		back.texture = load(COVER)
+		back.set_anchors_preset(Control.PRESET_FULL_RECT)
+		back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		back.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		back.modulate = Color(0.35, 0.3, 0.4)
+		back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_root.add_child(back)
 		var cover := TextureRect.new()
 		cover.texture = load(COVER)
 		cover.set_anchors_preset(Control.PRESET_FULL_RECT)
 		cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_root.add_child(cover)
 	else:
@@ -137,12 +146,19 @@ func _process(delta: float) -> void:
 	_prompt.modulate.a = 0.55 + 0.45 * sin(_t * 4.0)
 	# ภาพปกขยายเต็มจอแบบครอบ (จอแต่ละแบบสัดส่วนต่างกัน) ให้โลโก้ขยาย/เลื่อนตามภาพ จะได้อยู่ใต้วงนักษัตรเสมอ
 	var vs := _root.get_viewport_rect().size
-	var sc := maxf(vs.x / 1280.0, vs.y / 715.0)
+	var sc := minf(vs.x / 1280.0, vs.y / 715.0)
 	var top := (vs.y - 715.0 * sc) * 0.5
 	var left := (vs.x - 1280.0 * sc) * 0.5
-	var logo_sc := minf(sc, (vs.x - 40.0) / 480.0)  # จอแคบ (แนวตั้ง) ย่อโลโก้ให้พอดีความกว้าง
-	_logo.scale = Vector2(logo_sc, logo_sc)
-	_logo.position = Vector2(maxf(left + 26.0 * sc, 20.0), top + 12.0 * sc + sin(_t * 1.6) * 4.0 * sc)
+	var bob := sin(_t * 1.6) * 4.0
+	if top > 160.0:
+		# จอแนวตั้ง: ภาพปกเป็นแถบกลางจอ วางโลโก้ไว้เหนือภาพ ตรงกลาง
+		var big := minf(1.3, (vs.x - 40.0) / 480.0)
+		_logo.scale = Vector2(big, big)
+		_logo.position = Vector2((vs.x - 470.0 * big) * 0.5, top - 140.0 * big + bob)
+	else:
+		# มุมซ้ายบนของภาพปก
+		_logo.scale = Vector2(sc, sc)
+		_logo.position = Vector2(left + 26.0 * sc, top + 12.0 * sc + bob * sc)
 
 
 func _input(event: InputEvent) -> void:
