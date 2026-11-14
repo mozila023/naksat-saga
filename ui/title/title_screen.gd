@@ -133,7 +133,13 @@ func _add_character(path: String, offset: Vector2, zoom: float, flip: bool, tint
 func _process(delta: float) -> void:
 	_t += delta
 	_prompt.modulate.a = 0.55 + 0.45 * sin(_t * 4.0)
-	_logo.position.y = sin(_t * 1.6) * 6.0
+	# ภาพปกขยายเต็มจอแบบครอบ (จอแต่ละแบบสัดส่วนต่างกัน) ให้โลโก้ขยาย/เลื่อนตามภาพ จะได้อยู่ใต้วงนักษัตรเสมอ
+	var vs := _root.get_viewport_rect().size
+	var sc := maxf(vs.x / 1280.0, vs.y / 715.0)
+	var top := (vs.y - 715.0 * sc) * 0.5
+	var logo_sc := minf(sc, vs.x / 960.0)  # จอแคบ (แนวตั้ง) ย่อโลโก้ให้พอดีความกว้าง
+	_logo.scale = Vector2(logo_sc, logo_sc)
+	_logo.position.y = top + 236.0 * (sc - logo_sc) + sin(_t * 1.6) * 6.0 * sc
 
 
 func _input(event: InputEvent) -> void:
