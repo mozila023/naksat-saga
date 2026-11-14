@@ -74,6 +74,8 @@ func _ready() -> void:
 
 	camera = Camera2D.new()
 	camera.position = Vector2(0, -150)
+	# กล้องขยับตามจังหวะฟิสิกส์ (คู่กับ physics_interpolation ในโปรเจกต์) จอมือถือ 90/120Hz จะไม่สั่น
+	camera.process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
 	camera.position_smoothing_enabled = true
 	camera.position_smoothing_speed = 7.0
 	add_child(camera)

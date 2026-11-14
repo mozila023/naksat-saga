@@ -41,6 +41,8 @@ var _line_index := 0
 var _dlg_delay := 0.0
 var _mute_btn: Button
 var _speaker: SpeakerIcon
+var _full_btn: Button
+var _full_icon: FullscreenIcon
 var _skill_holder: Control
 var _hot_holder: Control
 var _touch_root: Control
@@ -221,6 +223,46 @@ func _build_status() -> void:
 	_speaker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_mute_btn.add_child(_speaker)
 	_refresh_mute()
+
+	# ปุ่มเต็มจอ (ข้างปุ่มเสียง)
+	_full_btn = Button.new()
+	_full_btn.position = Vector2(430, 16)
+	_full_btn.size = Vector2(46, 46)
+	_full_btn.focus_mode = Control.FOCUS_NONE
+	_full_btn.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS  # ทำงานตอนกดลง แล้วเบราว์เซอร์เต็มจอตอนปล่อยนิ้ว
+	for st in ["normal", "hover", "pressed"]:
+		_full_btn.add_theme_stylebox_override(st, mb_style)
+	_full_btn.pressed.connect(_toggle_fullscreen)
+	_root.add_child(_full_btn)
+	_full_icon = FullscreenIcon.new()
+	_full_icon.position = Vector2(8, 8)
+	_full_icon.size = Vector2(30, 30)
+	_full_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_full_btn.add_child(_full_icon)
+	if OS.has_feature("web"):
+		# เบราว์เซอร์ยอมให้เต็มจอได้เฉพาะตอนที่นิ้ว/เมาส์เพิ่งปล่อยจากจอ:
+		# กดปุ่มในเกม = ตั้งธงไว้ แล้วให้ JavaScript สลับเต็มจอตอนปล่อยนิ้ว
+		JavaScriptBridge.eval("""
+			if (!window.__naksatFs) {
+				window.__naksatFs = true;
+				window.__fsWanted = false;
+				const flip = () => {
+					if (!window.__fsWanted) return;
+					window.__fsWanted = false;
+					const d = document, el = d.documentElement;
+					if (d.fullscreenElement || d.webkitFullscreenElement) {
+						(d.exitFullscreen || d.webkitExitFullscreen).call(d);
+					} else {
+						const req = el.requestFullscreen || el.webkitRequestFullscreen;
+						if (req) {
+							const p = req.call(el, {navigationUI: 'hide'});
+							if (p && p.then) p.then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => {});
+						}
+					}
+				};
+				['pointerup', 'touchend', 'mouseup', 'keyup'].forEach(t => document.addEventListener(t, flip, true));
+			}
+		""", true)
 
 
 func _icon(item: String, px: int) -> TextureRect:
@@ -791,6 +833,30 @@ func toggle_bag() -> void:
 		_fill_bag()
 
 
+func _toggle_fullscreen() -> void:
+	Sound.play("ui")
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.__fsWanted = true;", true)
+		_full_icon.full = not _full_icon.full
+	else:
+		var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+		_full_icon.full = not full
+	_full_icon.queue_redraw()
+
+
+## ปิดหน้าต่างที่เปิดอยู่ทั้งหมด (กด ESC) คืนค่า true ถ้ามีหน้าต่างถูกปิด
+func close_windows() -> bool:
+	var any := _bag.visible or _craft.visible or _shop.visible
+	if _craft.visible:
+		close_craft()
+	if _shop.visible:
+		close_shop()
+	if _bag.visible:
+		toggle_bag()
+	return any
+
+
 func _toggle_mute() -> void:
 	Sound.toggle_mute()
 	_refresh_mute()
@@ -1055,6 +1121,8 @@ func _process(delta: float) -> void:
 	_dlg_delay = maxf(_dlg_delay - delta, 0.0)
 	if Input.is_action_just_pressed("mute"):
 		_toggle_mute()
+	if Input.is_action_just_pressed("ui_cancel"):
+		close_windows()
 	if Input.is_action_just_pressed("bag") and not Game.in_dialogue:
 		if _craft.visible or _shop.visible:
 			close_craft()
@@ -1243,6 +1311,21 @@ func _on_screen_resized() -> void:
 		Game.player.apply_view()
 
 ## รูปลำโพง (ปุ่มเปิด/ปิดเสียง)
+## ไอคอนเต็มจอ: มุม 4 มุมชี้ออก (กดแล้วเต็มจอ) / ชี้เข้า (ออกจากเต็มจอ)
+class FullscreenIcon extends Control:
+	var full := false
+
+	func _draw() -> void:
+		var col := Color(0.3, 0.18, 0.08)
+		for c in [Vector2(4, 4), Vector2(26, 4), Vector2(4, 26), Vector2(26, 26)]:
+			var sx := 1.0 if c.x < 15.0 else -1.0
+			var sy := 1.0 if c.y < 15.0 else -1.0
+			var corner: Vector2 = c if not full else c + Vector2(sx, sy) * 8.0
+			var dir := Vector2(sx, sy) * (1.0 if not full else -1.0)
+			draw_line(corner, corner + Vector2(dir.x * 8.0, 0), col, 3.0, true)
+			draw_line(corner, corner + Vector2(0, dir.y * 8.0), col, 3.0, true)
+
+
 class SpeakerIcon extends Control:
 	var muted := false
 

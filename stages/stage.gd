@@ -30,7 +30,14 @@ var _ground_bottom := 666.0  # ขอบล่างของแถบถนน 
 var _under_color := Color(0.26, 0.21, 0.2)
 
 
+var _ambient: AmbientLayer
+
+
 func _ready() -> void:
+	_ambient = AmbientLayer.new()
+	_ambient.stage = self
+	_ambient.z_index = 1
+	add_child(_ambient)
 	build()
 	if has_art():
 		_make_art_background()
@@ -188,7 +195,20 @@ func _process(delta: float) -> void:
 			s["timer"] -= delta
 			if s["timer"] <= 0.0:
 				_spawn(s)
-	queue_redraw()
+	# ฉากที่มีภาพจริง: พื้น/แท่น/ป้าย วาดครั้งเดียวพอ (ไม่ต้องวาดใหม่ทุกเฟรม ช่วยให้มือถือลื่นขึ้น)
+	# ส่วนที่ขยับ (ผีเสื้อ/หิ่งห้อย) อยู่ในโหนด _ambient ที่วาดใหม่ทุกเฟรม
+	if not has_art():
+		queue_redraw()
+	_ambient.queue_redraw()
+
+
+## ชั้นผีเสื้อ/หิ่งห้อยที่บินไปมา (วาดใหม่ทุกเฟรม แยกจากฉากนิ่ง)
+class AmbientLayer extends Node2D:
+	var stage: Stage
+
+	func _draw() -> void:
+		var cx := stage._view_center_x()
+		stage._draw_ambient(self, cx - 1400.0, cx + 1400.0)
 
 
 # ---------- โครงของแผนที่ ----------
@@ -279,6 +299,10 @@ func _draw() -> void:
 	var cx := _view_center_x()
 	var x0 := cx - 1400.0
 	var x1 := cx + 1400.0
+	if has_art():
+		# วาดครั้งเดียวทั้งแผนที่
+		x0 = -1400.0
+		x1 = width + 1400.0
 	# ใต้ดิน (เห็นตอนจอแนวตั้ง): เติมสีดินต่อจากแถบถนนลงไป
 	Art.vgrad(self, Rect2(x0, _ground_bottom - 1.0, x1 - x0, 300.0), _under_color, _under_color.darkened(0.45))
 	draw_rect(Rect2(x0, _ground_bottom + 298.0, x1 - x0, 2000.0), _under_color.darkened(0.45))
@@ -294,7 +318,6 @@ func _draw() -> void:
 	for r in _platforms:
 		if r.end.x > x0 and r.position.x < x1:
 			_draw_platform(r)
-	_draw_ambient(x0, x1)
 
 
 func _draw_ground(x0: float, x1: float) -> void:
@@ -388,7 +411,7 @@ func _draw_platform(r: Rect2) -> void:
 
 
 ## ผีเสื้อ / หิ่งห้อย ให้ฉากดูมีชีวิต
-func _draw_ambient(x0: float, x1: float) -> void:
+func _draw_ambient(c: CanvasItem, x0: float, x1: float) -> void:
 	var step := 420.0
 	var bx := floorf(x0 / step) * step
 	while bx < x1:
@@ -396,14 +419,14 @@ func _draw_ambient(x0: float, x1: float) -> void:
 		var pos := Vector2(bx + 200.0 + sin(_t * 0.7 + seed_v * 5.0) * 90.0, GROUND_Y - 130.0 - fmod(absf(bx) * 0.37, 160.0) + sin(_t * 1.9 + seed_v * 3.0) * 30.0)
 		if style in ["cave", "forest", "village2"]:
 			var a := 0.5 + 0.5 * sin(_t * 3.0 + seed_v * 9.0)
-			Art.glow(self, pos, 14.0, Color(1.0, 0.95, 0.5, a))
-			Art.circle(self, pos, 2.5, Color(1.0, 1.0, 0.8, a))
+			Art.glow(c, pos, 14.0, Color(1.0, 0.95, 0.5, a))
+			Art.circle(c, pos, 2.5, Color(1.0, 1.0, 0.8, a))
 		else:
 			var flap := absf(sin(_t * 12.0 + seed_v * 7.0))
 			var col := Color(1.0, 0.85, 0.3) if int(absf(bx) / step) % 2 == 0 else Color(1.0, 0.6, 0.8)
-			Art.ellipse(self, pos + Vector2(-5.0 * flap - 1.0, -2), 5.0 * flap + 1.0, 6.0, col)
-			Art.ellipse(self, pos + Vector2(5.0 * flap + 1.0, -2), 5.0 * flap + 1.0, 6.0, col)
-			Art.ellipse(self, pos, 1.4, 5.0, Art.INK)
+			Art.ellipse(c, pos + Vector2(-5.0 * flap - 1.0, -2), 5.0 * flap + 1.0, 6.0, col)
+			Art.ellipse(c, pos + Vector2(5.0 * flap + 1.0, -2), 5.0 * flap + 1.0, 6.0, col)
+			Art.ellipse(c, pos, 1.4, 5.0, Art.INK)
 		bx += step
 
 

@@ -6,6 +6,8 @@ var on_talk := Callable()
 var has_quest_mark := Callable()  # คืน true เมื่อควรแสดงเครื่องหมาย ! เหนือหัว
 var _visual: ChibiVisual
 var _t := 0.0
+var _mark_t := 0.0
+var _mark_on := false
 
 
 func _ready() -> void:
@@ -24,7 +26,15 @@ func _process(delta: float) -> void:
 	var p := Game.player
 	if p:
 		_visual.scale.x = 1.0 if p.global_position.x >= global_position.x else -1.0
-	queue_redraw()
+	# เครื่องหมาย ! ลอยขึ้นลง: วาดใหม่เฉพาะตอนที่มีเครื่องหมาย (เช็กทุก 0.3 วิ)
+	_mark_t -= delta
+	if _mark_t <= 0.0:
+		_mark_t = 0.3
+		_mark_on = has_quest_mark.is_valid() and has_quest_mark.call()
+		if not _mark_on:
+			queue_redraw()
+	if _mark_on:
+		queue_redraw()
 
 
 func interact() -> void:
@@ -33,7 +43,7 @@ func interact() -> void:
 
 
 func _draw() -> void:
-	if has_quest_mark.is_valid() and has_quest_mark.call():
+	if _mark_on:
 		var y := -label_height - 84.0 + sin(_t * 4.0) * 5.0
 		Art.blob(self, Vector2(0, y), 13.0, 13.0, Color(1.0, 0.86, 0.25))
 		Art.rrect(self, Rect2(-2.5, y - 8, 5, 10), Art.INK, 2.5)

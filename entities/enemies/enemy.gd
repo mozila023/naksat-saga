@@ -30,6 +30,8 @@ var _pop := 0.0  # ตัวยุบตอนโดนตี
 var _tex := {}  # ชื่อท่า -> ภาพ (ภาพวาดทีละท่า)
 var _land_t := 0.0
 var _was_floor := true
+var _label_key := ""
+var _asleep := false  # อยู่ไกลจากผู้เล่นมาก: หยุดคิด/หยุดขยับไว้ก่อน (ประหยัดเครื่อง)
 
 
 func _init() -> void:
@@ -89,9 +91,17 @@ func get_hurt_rect() -> Rect2:
 
 
 func _physics_process(delta: float) -> void:
+	# ไกลจากผู้เล่นเกินจอ: ไม่ต้องขยับ ไม่ต้องอัปเดตภาพ (มือถือจะลื่นขึ้นมาก)
+	var pl := Game.player
+	var far := pl != null and not _dying and absf(pl.global_position.x - global_position.x) > 1300.0 and is_on_floor()
+	if far != _asleep:
+		_asleep = far
+		visible = not far
+	if far:
+		return
 	_t += delta
 	_flash = maxf(_flash - delta, 0.0)
-	queue_redraw()
+	_update_visual()
 	if not is_on_floor():
 		velocity.y = minf(velocity.y + GRAVITY * delta, 1400.0)
 
@@ -166,7 +176,8 @@ func take_hit(dmg: float, dir: float, stun: float) -> void:
 		Game.on_enemy_killed(kind, global_position, exp_mult())
 
 
-func _draw() -> void:
+## ท่าทาง/ภาพของตัว (เปลี่ยนแค่ค่าของ Sprite ไม่ต้องวาดใหม่ทั้งตัว — เบากว่าสำหรับมือถือ)
+func _update_visual() -> void:
 	modulate = Color(2.2, 2.2, 2.2, modulate.a) if _flash > 0.0 else Color(1, 1, 1, modulate.a)
 	# ยืดหดตามจังหวะกระโดด ให้ดูนุ่ม (ภาพต้นฉบับหันซ้าย)
 	var stretch := clampf(-velocity.y / 900.0, -0.18, 0.22)
@@ -197,6 +208,14 @@ func _draw() -> void:
 		_sprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
 		_sprite.scale = Vector2(0.5 * (1.0 + _pop * 0.28), 0.5 * (1.0 + breathe * 0.5 - _pop * 0.24))
 		_sprite.rotation = 0.0
+	# ป้ายเลเวล/หลอดเลือด/ดาวมึน วาดใหม่เฉพาะตอนที่มีอะไรเปลี่ยน
+	var label_key := "%d:%d:%d" % [int(level > Game.level), int(hp * 10.0), int(_dying)]
+	if label_key != _label_key or _stun > 0.5:
+		_label_key = label_key
+		queue_redraw()
+
+
+func _draw() -> void:
 	Art.shadow(self, Vector2(0, 2), 28.0)
 
 	# ป้ายเลเวลเหนือหัว: สีแดงเมื่อเลเวลสูงกว่าผู้เล่น

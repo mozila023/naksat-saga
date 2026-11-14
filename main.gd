@@ -119,6 +119,7 @@ func _load_stage(id: String, spawn: String) -> void:
 	world.move_child(stage, 0)
 	player.global_position = stage.spawns.get(spawn, Vector2(200, Stage.GROUND_Y))
 	player.velocity = Vector2.ZERO
+	player.reset_physics_interpolation()  # ย้ายแผนที่ = วาร์ป ไม่ต้องไหลจากจุดเดิม
 	player.set_camera_limits(stage.width)
 	Game.banner.emit(stage.title)
 	Sound.play_bgm(BGM.get(id, id))

@@ -27,6 +27,8 @@ Godot 4.7.2 GDScript game (web export, no threads). The owner does not code: exp
 - Add a hero form = one entry in `utilities/forms.gd` (same body size for all forms, outfit only). Skill kinds: melee / dash / aoe.
 - Add a map = new script extending `Stage` in `stages/`, registered in `main.gd` STAGES.
 - Combat uses rect checks via `Game.hit_enemies()`; enemies are in group `enemies` with `is_alive()`, `get_hurt_rect()`, `take_hit()`.
+- Mobile smoothness: physics interpolation is on (`project.godot`, camera uses the physics callback; call `reset_physics_interpolation()` after teleports). Stages with art draw their static parts once (`Stage._draw` over the whole width) and only the `AmbientLayer` child (butterflies/fireflies) redraws each frame; enemies more than 1300 px from the player sleep (`Enemy._asleep`) and only redraw their label/HP bar when it changes; NPC `!` marks and pickups don't redraw every frame. Measure CPU per frame with `godot --headless --path . res://tests/perf.tscn`.
+- HUD: fullscreen button next to the mute button (web: sets a JS flag and the page toggles fullscreen on the next pointer/touch release, because browsers only allow it inside a user gesture; iPhone Safari has no fullscreen API). ESC (`ui_cancel`) closes every window (`Hud.close_windows()`: bag + character, shop, crafting).
 - Layers: 1 ground, 2 player, 4 enemies, 8 one-way platforms. Ground is y=600.
 - Thai text: add spaces at phrase breaks so labels can wrap.
 - Verify before pushing: `godot --headless --path . --import && godot --headless --path . res://tests/smoke.tscn` (must print RESULT: PASS). Screenshots: run under `xvfb-run` with `-- shots=<dir>`.

@@ -33,7 +33,6 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_t += delta
-	queue_redraw()
 	if not _landed:
 		_vel.y += 1500.0 * delta
 		position += _vel * delta
@@ -43,6 +42,7 @@ func _physics_process(delta: float) -> void:
 				_vel = Vector2(_vel.x * 0.5, -_vel.y * 0.4)
 			else:
 				_landed = true
+				queue_redraw()  # เงาใต้ของ (วาดครั้งเดียวตอนตกถึงพื้น)
 	else:
 		_sprite.position.y = -16.0 + sin(_t * 4.0) * 3.0
 
