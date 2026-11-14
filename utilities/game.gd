@@ -30,7 +30,7 @@ var ITEMS := {
 	"sandals": {"name": "รองเท้าหนัง", "desc": "", "icon": "sandals", "tab": "equip", "slot": "feet", "speed": 0.08, "buy": 40, "sell": 12},
 	"amulet": {"name": "เหรียญนำโชค", "desc": "", "icon": "amulet", "tab": "equip", "slot": "charm", "atk": 2.0, "hp": 15.0, "buy": 150, "sell": 40},
 	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 0},
-	"mist_horn": {"name": "เขาปิศาจหมอก", "desc": "", "icon": "mist_horn", "tab": "etc", "buy": 0, "sell": 0},
+	"mist_horn": {"name": "เขาปิศาจหมอก", "desc": "", "icon": "mist_horn", "tab": "etc", "buy": 0, "sell": 0, "auntie": 60},
 }
 const POTION_HEAL := 50.0
 # ของในร้านป้าศรี (เรียงตามที่แสดง)
@@ -594,6 +594,39 @@ func buy_item(id: String) -> bool:
 	money -= price
 	add_item(id, 1)
 	return true
+
+
+## ราคาที่ป้าศรีรับซื้อ (0 = ขายไม่ได้): ขายได้ทุกอย่าง ยกเว้นชิ้นส่วนนักษัตร (ของทำเซ็ท)
+## ของที่มีราคาขายใช้ราคานั้น ของจากร้านคืนครึ่งราคา ของอื่น ๆ (เช่น ของเซ็ท) ให้ราคาตามความหายาก
+func sell_price(id: String) -> int:
+	if id.begins_with("zpart_") or not ITEMS.has(id):
+		return 0
+	var info: Dictionary = ITEMS[id]
+	if int(info.get("auntie", 0)) > 0:
+		return int(info["auntie"])  # ของที่ลุงหมูไม่รับ แต่ป้าศรีรับ
+	if int(info.get("sell", 0)) > 0:
+		return int(info["sell"])
+	if int(info.get("buy", 0)) > 0:
+		return maxi(int(info["buy"]) / 2, 1)
+	if int(info.get("quality", 0)) == 5:
+		return 300
+	return 20
+
+
+## ขายไอเทมให้ป้าศรี amount ชิ้น (-1 = ขายหมด) คืนค่าเงินที่ได้
+func sell_item(id: String, amount := 1) -> int:
+	var price := sell_price(id)
+	var n := item_count(id) if amount < 0 else mini(amount, item_count(id))
+	if price <= 0 or n <= 0:
+		return 0
+	items[id] = item_count(id) - n
+	if items[id] <= 0:
+		items.erase(id)
+		for i in HOTBAR_SIZE:
+			if hotbar[i] == id:
+				hotbar[i] = ""
+	add_money(price * n)  # (add_money เซฟให้แล้ว)
+	return price * n
 
 
 ## ขายของดรอปทั้งหมดที่ขายได้ (เฉพาะแท็บทั่วไป ไม่ขายอุปกรณ์) คืนค่าเงินที่ได้

@@ -52,6 +52,8 @@ var _craft_money: Label
 var _shop: Panel
 var _shop_list: VBoxContainer
 var _shop_money: Label
+var _shop_tab := "buy"
+var _shop_tabs := {}
 
 
 func _ready() -> void:
@@ -79,6 +81,15 @@ func _ready() -> void:
 	_shop_list = shop[1]
 	_shop_money = shop[2]
 	Game.shop_opened.connect(open_shop)
+	for i in 2:
+		var key: String = ["buy", "sell"][i]
+		var tb := _action_button(["ซื้อ", "ขาย"][i], true, func() -> void:
+			_shop_tab = key
+			_fill_shop())
+		tb.position = Vector2(220 + i * 100, 14)
+		tb.size = Vector2(90, 42)
+		_shop.add_child(tb)
+		_shop_tabs[key] = tb
 	Game.stats_changed.connect(_refresh_stats)
 	_refresh_stats()
 	Game.hp_changed.connect(_refresh_hp)
@@ -422,11 +433,16 @@ func _build_bag() -> void:
 		b.pressed.connect(_set_bag_tab.bind(tabs[i][0]))
 		_bag.add_child(b)
 		_tab_buttons[tabs[i][0]] = b
+	# รายการของเลื่อนขึ้นลงได้ (ของเยอะไม่ล้นกรอบกระเป๋า)
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(20, 128)
+	scroll.size = Vector2(560, 356)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_bag.add_child(scroll)
 	_bag_list = VBoxContainer.new()
-	_bag_list.position = Vector2(28, 132)
-	_bag_list.size = Vector2(544, 350)
+	_bag_list.custom_minimum_size = Vector2(540, 0)
 	_bag_list.add_theme_constant_override("separation", 10)
-	_bag.add_child(_bag_list)
+	scroll.add_child(_bag_list)
 
 
 func _set_bag_tab(tab: String) -> void:
@@ -603,6 +619,7 @@ func _action_button(text: String, enabled: bool, on_press: Callable) -> Button:
 
 func open_shop() -> void:
 	Sound.play("ui")
+	_shop_tab = "buy"
 	_bag.visible = false
 	_char.visible = false
 	_craft.visible = false
@@ -619,6 +636,11 @@ func _fill_shop() -> void:
 	for child in _shop_list.get_children():
 		_shop_list.remove_child(child)
 		child.queue_free()
+	for key in _shop_tabs:
+		_shop_tabs[key].modulate = Color.WHITE if key == _shop_tab else Color(1, 1, 1, 0.45)
+	if _shop_tab == "sell":
+		_fill_sell()
+		return
 	for id in Game.SHOP:
 		var info: Dictionary = Game.ITEMS[id]
 		var row := HBoxContainer.new()
@@ -642,6 +664,40 @@ func _fill_shop() -> void:
 		row.add_child(box)
 		row.add_child(_action_button("ซื้อ", Game.money >= int(info["buy"]), _do_buy.bind(id)))
 		_shop_list.add_child(row)
+
+
+## แท็บขาย: ของในกระเป๋าทุกอย่างที่ขายได้ (ชิ้นส่วนนักษัตรไม่แสดง)
+func _fill_sell() -> void:
+	var any := false
+	for id in Game.ITEMS:
+		var count := Game.item_count(id)
+		var price := Game.sell_price(id)
+		if count <= 0 or price <= 0:
+			continue
+		any = true
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		row.custom_minimum_size = Vector2(620, 56)
+		row.add_child(_icon(Game.ITEMS[id]["icon"], 44))
+		var box := VBoxContainer.new()
+		box.custom_minimum_size = Vector2(360, 0)
+		box.add_theme_constant_override("separation", 0)
+		box.add_child(_label("%s   x%d" % [item_title(id), count], 19, item_color(id), 0))
+		box.add_child(_label("ชิ้นละ %d บาท" % price, 15, Color(0.45, 0.35, 0.25), 0))
+		row.add_child(box)
+		row.add_child(_action_button("ขาย 1", true, _do_sell.bind(id, 1)))
+		var all := _action_button("ขายหมด", true, _do_sell.bind(id, -1))
+		all.custom_minimum_size = Vector2(100, 46)
+		row.add_child(all)
+		_shop_list.add_child(row)
+	if not any:
+		_shop_list.add_child(_label("ไม่มีของที่ขายได้", 19, Color(0.6, 0.5, 0.4), 0))
+
+
+func _do_sell(id: String, amount: int) -> void:
+	if Game.sell_item(id, amount) > 0:
+		Sound.play("coin")
+		_fill_shop()
 
 
 func _do_buy(id: String) -> void:
@@ -776,7 +832,7 @@ func _fill_bag() -> void:
 		var row := BagRow.new()
 		row.item = id
 		row.hud = self
-		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		row.mouse_filter = Control.MOUSE_FILTER_PASS  # PASS: ให้ล้อเมาส์ไปเลื่อนรายการได้
 		row.mouse_default_cursor_shape = Control.CURSOR_DRAG
 		row.add_theme_constant_override("separation", 12)
 		row.add_child(_icon(info["icon"], 44))

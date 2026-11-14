@@ -270,7 +270,27 @@ func _ready() -> void:
 	Game.set_hp(10.0)
 	p.use_item("big_potion")
 	check(Game.hp >= 160.0 or Game.hp == Game.max_hp, "big potion heals a lot (%d)" % Game.hp)
+	main.hud._shop_tab = "sell"
+	main.hud._fill_shop()
+	await frames(5)
+	await shot("04f_shop_sell")
+	Game.add_item("frog_leg", 3)
+	Game.add_item(Crafting.part_id("rat", "fang"), 1)
+	var m0 := Game.money
+	main.hud._do_sell("frog_leg", -1)
+	check(Game.money > m0 and Game.item_count("frog_leg") == 0, "auntie buys items")
+	check(Game.sell_price(Crafting.part_id("rat", "fang")) == 0, "zodiac parts cannot be sold")
+	Game.add_item(Crafting.part_id("rat", "fang"), -1)
 	main.hud.close_shop()
+	# กระเป๋าของเยอะ: รายการต้องเลื่อนได้ ไม่ล้นกรอบ
+	for id in ["frog_dagger__q1", "mush_hat__q2", "frog_vest__q3", "frog_boots__q4", "mist_charm__q1", "sandals", "straw_hat", "pha_khao_ma", "amulet"]:
+		Game.add_item(id, 1)
+	main.hud.toggle_bag()
+	main.hud._set_bag_tab("equip")
+	await frames(5)
+	check(main.hud._bag_list.get_parent() is ScrollContainer, "bag list scrolls")
+	await shot("04g_bag_full")
+	main.hud.toggle_bag()
 	p.global_position.x = 70.0
 	await frames(20)
 	await tap("interact")
