@@ -205,7 +205,7 @@ func _update_weapon(attack_frame: int, pos: Vector2, sy: float) -> void:
 	var p: Vector2 = grip[0]
 	s.position = pos + Vector2((p.x - 180.0) * 0.5, (p.y - 300.0) * 0.5 * sy)
 	s.rotation = deg_to_rad(float(grip[1]) + 45.0)
-	s.scale = Vector2(0.62, 0.62) if attack_frame >= 0 else Vector2(0.52, 0.52)
+	s.scale = Vector2(0.72, 0.72) if attack_frame >= 0 else Vector2(0.56, 0.56)
 	s.modulate = _fsprite.modulate * (Color.WHITE if attack_frame >= 0 else Color(0.85, 0.85, 0.85))
 
 
