@@ -87,7 +87,7 @@ func _ready() -> void:
 	Game.quest_stage = 3
 	Game.max_hp = 100000.0
 	Game.set_hp(100000.0)
-	main.change_stage("tiger_cave", "entrance")
+	main.change_stage("demon_lair", "entrance")
 	await frames(60)
 	p.global_position.x = 900.0
 	for i in 16:

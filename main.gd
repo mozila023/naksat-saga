@@ -4,7 +4,7 @@ extends Node
 const STAGES := {
 	"village": preload("res://stages/village.gd"),
 	"rice_field": preload("res://stages/rice_field.gd"),
-	"tiger_cave": preload("res://stages/tiger_cave.gd"),
+	"demon_lair": preload("res://stages/demon_lair.gd"),
 	"chief_house": preload("res://stages/chief_house.gd"),
 	"trial_hall": preload("res://stages/trial_hall.gd"),
 }

@@ -1,10 +1,12 @@
-extends Stage
-## แผนที่ 3: ถ้ำเสือ — ลานประลองของขาล (พญาเสือโคร่ง) นักษัตรปีเสือ Lv.30
+class_name DemonLair extends Stage
+## ถ้ำยักษ์หมอกทมิฬ (สุดทางทุ่งนา) — บอสปิศาจที่ตีซ้ำได้ทุกครั้งที่เข้ามา ให้ EXP และของเยอะ
+
+const MIN_LEVEL := 15
 
 
 func build() -> void:
 	width = 2200.0
-	title = "ถ้ำเสือ"
+	title = "ถ้ำยักษ์หมอกทมิฬ"
 	style = "cave"
 	spawns = {"entrance": Vector2(260, GROUND_Y)}
 
@@ -20,9 +22,7 @@ func build() -> void:
 
 	add_portal(100.0, "ออกจากถ้ำ", "rice_field", "from_cave", Callable(), Color(0.6, 1.0, 0.5))
 
-	if Game.active_trial != "tiger":
-		return
-	var boss := ZodiacBoss.create("tiger")
+	var boss := ZodiacBoss.create("mist_giant")
 	boss.position = Vector2(1650, GROUND_Y - 2.0)
 	boss.arena_left = 330.0
 	boss.arena_right = width - 120.0

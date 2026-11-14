@@ -1,6 +1,6 @@
 class_name ZodiacBoss extends CharacterBody2D
-## นักษัตรตอนประลอง (ใช้ร่วมกันทุกตัว ค่าต่าง ๆ มาจาก Zodiac.LIST[...]["boss"])
-## ท่า: ตะปบ / กระโจนทับ / คำรามปล่อยคลื่น (เมื่อเลือดต่ำกว่าครึ่ง) — มีกรอบแดงเตือนก่อนทุกท่า
+## บอส: นักษัตรตอนประลอง (ค่าจาก Zodiac.LIST[...]["boss"]) และปิศาจ (ค่าจาก DEMONS)
+## ท่า: ตะปบ / กระโจนทับ / คำรามปล่อยคลื่น (เมื่อเลือดต่ำกว่าครึ่ง) — มีวงเวทเตือนบนพื้นก่อนทุกท่า
 
 const GRAVITY := 1800.0
 
@@ -30,12 +30,20 @@ var _hold_t := 0.0
 var _walk_t := 0.0
 
 
-## สร้างนักษัตรตามรหัส (เช่น "rat", "tiger")
+## บอสที่ไม่ใช่นักษัตร (ปิศาจ) ใช้ท่าชุดเดียวกัน ตีซ้ำได้ทุกครั้งที่เข้าแผนที่
+const DEMONS := {
+	"mist_giant": {"name": "ยักษ์หมอกทมิฬ", "hp": 1400.0, "size": Vector2(150, 170), "frames": "mist_giant",
+		"walk": [120.0, 170.0], "tel": 1.1, "claw": 22.0, "pounce": 28.0, "contact": 14.0, "wave": 18.0,
+		"reach": 260.0, "shout": "ฮ่าฮ่าฮ่า!!", "aura": Color(0.65, 0.4, 1.0)},
+}
+
+
+## สร้างบอสตามรหัส: นักษัตร (เช่น "rat", "tiger") หรือปิศาจใน DEMONS (เช่น "mist_giant")
 static func create(id: String) -> ZodiacBoss:
 	var b := ZodiacBoss.new()
 	var z := Zodiac.get_data(id)
 	b.zodiac_id = id
-	b.cfg = z["boss"]
+	b.cfg = z["boss"] if not z.is_empty() else DEMONS[id]
 	b.boss_name = b.cfg["name"]
 	b.max_hp = float(b.cfg["hp"])
 	b.hp = b.max_hp

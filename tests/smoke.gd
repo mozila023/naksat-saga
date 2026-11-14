@@ -258,7 +258,7 @@ func _ready() -> void:
 	await shot("05_cave_mouth")
 	await tap("interact")
 	await frames(40)
-	check(Game.in_dialogue and main.stage_id == "rice_field", "tiger cave sealed until the tiger trial")
+	check(Game.in_dialogue and main.stage_id == "rice_field", "demon lair sealed below Lv.15")
 	Game.end_dialogue()
 	main.hud._dialogue.visible = false
 	check(Game.quest_text().contains("Lv.10"), "quest asks to reach Lv.10 (%s)" % Game.quest_text())
@@ -313,7 +313,7 @@ func _ready() -> void:
 	await frames(30)
 	await talk_through()
 	await frames(60)
-	check(main.stage_id == "tiger_cave", "tiger trial happens in the tiger cave")
+	check(main.stage_id == "trial_hall", "tiger trial happens in the trial hall")
 	check(Game.boss != null and Game.boss.zodiac_id == "tiger", "tiger boss present")
 	Game.max_hp = 100000.0
 	Game.set_hp(100000.0)
@@ -339,6 +339,27 @@ func _ready() -> void:
 		p.use_skill(i)
 		await frames(40)
 	await shot("10_tiger_form")
+
+	# ---- ถ้ำยักษ์หมอกทมิฬ (บอสปิศาจ ตีซ้ำได้) ----
+	main.change_stage("rice_field", "from_cave")
+	await frames(60)
+	p.global_position.x = 9400.0
+	await frames(20)
+	await tap("interact")
+	await frames(60)
+	check(main.stage_id == "demon_lair", "demon lair opens at Lv.15+")
+	check(Game.boss != null and Game.boss.zodiac_id == "mist_giant", "mist giant boss present")
+	Game.max_hp = 100000.0
+	Game.set_hp(100000.0)
+	p.global_position.x = 1000.0
+	await frames(200)
+	await shot("10b_demon_fight")
+	var exp_before := Game.exp
+	var lv_before := Game.level
+	await kill_all(1)
+	await frames(30)
+	check(Game.level > lv_before or Game.exp > exp_before, "demon gives EXP")
+	await shot("10c_demon_defeated")
 
 	Game.max_hp = 100.0
 	Game.set_hp(1.0)

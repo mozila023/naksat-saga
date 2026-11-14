@@ -12,18 +12,22 @@ SRC, OUT = sys.argv[1], sys.argv[2]
 
 # ไฟล์ -> ชื่อผลลัพธ์, จำนวนแถว, ชื่อเฟรม (ไล่ซ้ายไปขวา บนลงล่าง), เฟรมอ้างอิงขนาด, ความสูงเป้าหมาย (2 เท่าของที่แสดง), ผืนผ้าใบ, ช่วงค่าตัดพื้น
 SHEETS = [
-    ("naksat_frog_hop", "frog", 1, ["idle_0", "hop_0", "hop_1", "hop_2"], 0, 124.0, (280, 220), (50, 90)),
+    ("naksat_frog_hop2", "frog", 1, ["idle_0", "hop_0", "hop_1", "hop_2"], 0, 124.0, (280, 220), (50, 90)),
     ("naksat_mushroom_walk", "mushroom", 1, ["walk_0", "walk_1", "walk_2", "walk_3"], 1, 168.0, (220, 200), (110, 150)),
     ("naksat_tiger_boss_walk", "tiger_boss", 2, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 300.0, (680, 420), (50, 90)),
     ("naksat_tiger_boss_actions", "tiger_boss", 2, ["crouch_0", "leap_0", "swipe_0", "roar_0"], None, 300.0, (680, 420), (50, 90)),
     ("naksat_rat_boss_walk", "rat_boss", 2, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 150.0, (560, 300), (50, 90)),
     ("naksat_rat_boss_actions", "rat_boss", 2, ["crouch_0", "leap_0", "swipe_0", "roar_0"], None, 150.0, (560, 300), (50, 90)),
+    ("naksat_mist_giant_walk", "mist_giant", 2, ["walk_0", "walk_1", "walk_2", "walk_3"], 0, 380.0, (720, 520), (50, 90)),
+    ("naksat_mist_giant_actions", "mist_giant", 2, ["crouch_0", "leap_0", "swipe_0", "roar_0"], None, 380.0, (720, 520), (50, 90)),
 ]
 ONLY = set(sys.argv[3:])
 
 
 # เฟรมที่ AI วาดหันผิดด้าน (ต้องหันซ้ายเหมือนเฟรมอื่น) ให้กลับด้าน
-FLIP = {("frog", "hop_1")}
+FLIP = set()
+# ตัวที่ AI วาดหันขวาทั้งชีต ให้กลับด้านทุกเฟรม
+FLIP_ALL = {"mist_giant", "frog"}
 
 
 def key_out(im, lo, hi):
@@ -89,7 +93,7 @@ for src, name, rows, names, ref, target_h, canvas_size, (lo, hi) in SHEETS:
     s = scales[name]
     for fname, fr in zip(names, frames):
         im = Image.fromarray(fr, "RGBA")
-        if (name, fname) in FLIP:
+        if (name, fname) in FLIP or name in FLIP_ALL:
             im = im.transpose(Image.FLIP_LEFT_RIGHT)
         im = im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))), Image.LANCZOS)
         canvas = Image.new("RGBA", canvas_size, (0, 0, 0, 0))

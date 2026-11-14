@@ -26,6 +26,7 @@ const ITEMS := {
 	"sandals": {"name": "รองเท้าหนัง", "desc": "", "icon": "sandals", "tab": "equip", "slot": "feet", "speed": 0.08, "buy": 0, "sell": 12},
 	"amulet": {"name": "เหรียญนำโชค", "desc": "", "icon": "amulet", "tab": "equip", "slot": "charm", "atk": 2.0, "hp": 15.0, "buy": 0, "sell": 40},
 	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 0},
+	"mist_horn": {"name": "เขาปิศาจหมอก", "desc": "", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 60},
 }
 const POTION_HEAL := 50.0
 # ช่องอุปกรณ์สวมใส่ในหน้าตัวละคร: [รหัสช่อง, ชื่อที่แสดง]
@@ -38,6 +39,7 @@ const REWARDS := {
 	"frog": {"exp": 8, "coins": [1, 2], "coin_value": [2, 4], "drops": [["frog_leg", 0.4], ["potion", 0.012], ["straw_hat", 0.02], ["sandals", 0.02]]},
 	"mushroom": {"exp": 18, "coins": [1, 3], "coin_value": [3, 6], "drops": [["mushroom_cap", 0.4], ["potion", 0.025], ["wood_sword", 0.03], ["pha_khao_ma", 0.03]]},
 	"rat": {"exp": 300, "coins": [6, 6], "coin_value": [6, 10], "drops": [["potion", 1.0], ["sandals", 1.0]]},
+	"mist_giant": {"exp": 700, "coins": [6, 9], "coin_value": [12, 18], "drops": [["mist_horn", 1.0], ["potion", 0.6]]},
 	"tiger": {"exp": 900, "coins": [8, 8], "coin_value": [10, 14], "drops": [["tiger_fang", 1.0], ["potion", 1.0], ["amulet", 1.0]]},
 }
 
@@ -455,6 +457,10 @@ func on_boss_defeated(id: String, pos := Vector2.INF) -> void:
 	var z := Zodiac.get_data(id)
 	active_trial = ""
 	if z.is_empty():
+		# บอสปิศาจ: ไม่ได้ร่างใหม่ แต่ได้ EXP และของเยอะ กลับมาตีซ้ำได้
+		var demon: Dictionary = ZodiacBoss.DEMONS.get(id, {})
+		banner.emit("ปราบ %s ได้แล้ว!" % demon.get("name", id))
+		save_game()
 		return
 	var form := Forms.get_form(id)
 	if unlock_form(id):
