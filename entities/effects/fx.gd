@@ -5,7 +5,7 @@ class_name Fx extends Node2D
 ##   spark  = ประกายตอนตีโดน                burst = ระเบิดควัน (ศัตรูตาย / เปลี่ยนร่าง)
 ##   star   = ดาวประกายลอยขึ้น              puff  = ฝุ่น
 ##   ghost  = เงาตามตัวตอนพุ่ง              pillar = ลำแสงพุ่งขึ้น
-##   warn   = กรอบเตือนท่าบอส
+##   warn   = วงเวทเตือนบนพื้นก่อนบอสออกท่า
 
 var kind := "slash"
 var size := Vector2(90, 80)
@@ -138,11 +138,75 @@ func _draw() -> void:
 				draw_texture_rect(tex, Rect2(-w * 0.5, -h + 3.0, w, h), false, Color(color.r, color.g, color.b, 0.6 * fade))
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		"warn":
-			# กรอบเตือนพื้นที่ที่บอสกำลังจะตี (จุดกำเนิดคือมุมซ้ายบน)
-			var blink := 0.3 + 0.2 * sin(_t * 26.0)
-			var r := Rect2(Vector2.ZERO, size)
-			Art.rrect(self, r, Color(color.r, color.g, color.b, 0.12 + blink * 0.5), 12.0)
-			draw_rect(r.grow(-2.0), Color(color.r, color.g, color.b, 0.95), false, 4.0, true)
+			# วงเวทเตือนบนพื้น ตรงที่บอสกำลังจะตี (จุดกำเนิดคือมุมซ้ายบนของพื้นที่โจมตี)
+			# วงรีเรืองแสงบนพื้น + แสงชาร์จที่ขยายจากกลางออกไปจนเต็มตอนบอสตีจริง + ลำแสงลอยขึ้น
+			_warn_mark(p)
+
+
+## วาดวงรี (แบบทึบใช้วงกลมรัศมี 100 แล้วบีบด้วย transform, แบบเส้นขอบคำนวณจุดเอง ให้เส้นหนาเท่ากันทั้งวง)
+func _ellipse(center: Vector2, radii: Vector2, col: Color, filled := true, width := 3.0) -> void:
+	if radii.x < 1.0 or radii.y < 1.0:
+		return
+	if filled:
+		draw_set_transform(center, 0.0, radii / 100.0)
+		draw_circle(Vector2.ZERO, 100.0, col, true, -1.0, true)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	else:
+		var pts := PackedVector2Array()
+		for i in 49:
+			var ang := TAU * i / 48.0
+			pts.append(center + Vector2(cos(ang) * radii.x, sin(ang) * radii.y))
+		draw_polyline(pts, col, width, true)
+
+
+func _warn_mark(p: float) -> void:
+	var appear := clampf(_t / 0.12, 0.0, 1.0)  # ค่อย ๆ โผล่ตอนเริ่ม
+	var out := clampf((1.0 - p) / 0.08, 0.0, 1.0)  # จางตอนจบ
+	var a := appear * out
+	var pulse := 0.5 + 0.5 * sin(_t * 18.0)
+	var ground := Vector2(size.x * 0.5, size.y)
+	var rad := Vector2(size.x * 0.5, clampf(size.x * 0.09, 16.0, 30.0))
+	var col := Color(color.r, color.g, color.b)
+	var hot := col.lerp(Color(1, 1, 0.85), 0.55)
+	# แสงหมอกจาง ๆ ลอยเหนือพื้นที่ (ไล่จากพื้นขึ้นไป)
+	var top := Color(col.r, col.g, col.b, 0.0)
+	# (สว่างตรงกลางล่าง จางออกทุกขอบ จะได้ไม่เห็นเป็นกล่องสี่เหลี่ยม)
+	var glow := Color(col.r, col.g, col.b, 0.32 * a)
+	var cb := Vector2(size.x * 0.5, size.y)
+	for tri in [[Vector2(0, size.y), Vector2(0, size.y * 0.25)], [Vector2(0, size.y * 0.25), Vector2(size.x, size.y * 0.25)], [Vector2(size.x, size.y * 0.25), Vector2(size.x, size.y)]]:
+		draw_polygon(PackedVector2Array([cb, tri[0], tri[1]]), PackedColorArray([glow, top, top]))
+	# วงรีบนพื้น: เงาเรือง 3 ชั้น
+	_ellipse(ground, rad * 1.12, Color(col.r, col.g, col.b, 0.16 * a))
+	_ellipse(ground, rad, Color(col.r * 0.5, col.g * 0.2, col.b * 0.2, 0.35 * a))
+	# แสงชาร์จ ขยายจากกลางจนเต็มวง
+	var fill := ease(p, 0.6)
+	_ellipse(ground, rad * fill, Color(hot.r, hot.g, hot.b, (0.28 + 0.2 * pulse) * a))
+	# ขอบวงเรืองแสง (กระพริบเร็วขึ้นเมื่อใกล้ตี)
+	_ellipse(ground, rad, Color(col.r, col.g, col.b, (0.75 + 0.25 * pulse) * a), false, 4.0)
+	_ellipse(ground, rad * 0.72, Color(hot.r, hot.g, hot.b, 0.45 * a), false, 2.0)
+	# ลายหัวลูกศรชี้เข้ากลาง 2 ข้าง (ขยับเข้าหากลางเรื่อย ๆ)
+	for side: float in [-1.0, 1.0]:
+		for i in 3:
+			var k := fposmod(_t * 1.6 + i / 3.0, 1.0)
+			var x := ground.x + side * rad.x * (0.92 - k * 0.6)
+			var h := rad.y * 0.55
+			var ca := Color(hot.r, hot.g, hot.b, a * (1.0 - k) * 0.9)
+			draw_polyline(PackedVector2Array([Vector2(x + side * h * 0.6, ground.y - h), Vector2(x, ground.y), Vector2(x + side * h * 0.6, ground.y + h)]), ca, 3.0, true)
+	# ประกายลอยขึ้นจากวง
+	for i in 9:
+		var r := fposmod(_seed * 7.3 + i * 0.618, 1.0)
+		var k := fposmod(_t * 0.9 + r, 1.0)
+		var x := ground.x + (r * 2.0 - 1.0) * rad.x * 0.85
+		var y := ground.y - k * size.y * 0.8
+		var streak := 10.0 + 14.0 * (1.0 - k)
+		draw_line(Vector2(x, y), Vector2(x, y + streak), Color(hot.r, hot.g, hot.b, a * (1.0 - k) * 0.8), 3.0, true)
+	# เครื่องหมาย ! ในรูปข้าวหลามตัด เหนือกลางวง
+	var ic := Vector2(ground.x, size.y * 0.3 - pulse * 4.0)
+	var d := 15.0
+	draw_colored_polygon(PackedVector2Array([ic + Vector2(0, -d), ic + Vector2(d, 0), ic + Vector2(0, d), ic + Vector2(-d, 0)]), Color(0.18, 0.04, 0.04, 0.85 * a))
+	draw_polyline(PackedVector2Array([ic + Vector2(0, -d), ic + Vector2(d, 0), ic + Vector2(0, d), ic + Vector2(-d, 0), ic + Vector2(0, -d)]), Color(hot.r, hot.g, hot.b, a), 3.0, true)
+	draw_line(ic + Vector2(0, -8), ic + Vector2(0, 2), Color(1, 1, 1, a), 3.5, true)
+	draw_circle(ic + Vector2(0, 6.5), 2.2, Color(1, 1, 1, a), true, -1.0, true)
 
 
 ## เส้นโค้งปลายเรียว (หนาตรงกลาง) ตามจุดที่ให้มา

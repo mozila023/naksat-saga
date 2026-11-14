@@ -9,7 +9,6 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-SRC, OUT = sys.argv[1], sys.argv[2]
 CANVAS = (360, 300)      # ขนาดผืนผ้าใบของทุกเฟรม (ละเอียด 2 เท่าของขนาดที่แสดง)
 STAND_H = 216.0          # ความสูงตัวละครตอนยืน (2 เท่าของ 108 พิกเซลในเกม)
 
@@ -91,29 +90,31 @@ def anchor_x(frame, mode):
     return (xs[0] + xs[-1]) * 0.5
 
 
-# ชีตที่ AI วาดเฟรมเกินมา: {ร่าง: {ชีต: จำนวนเฟรมจริงในภาพ}} (ใช้แค่เฟรมแรก ๆ ตามจำนวนชื่อ)
-EXTRA = {"rat": {"attack": 4}}
-FORMS = sys.argv[3:] or ["normal", "tiger"]
+if __name__ == "__main__":
+    SRC, OUT = sys.argv[1], sys.argv[2]
+    # ชีตที่ AI วาดเฟรมเกินมา: {ร่าง: {ชีต: จำนวนเฟรมจริงในภาพ}} (ใช้แค่เฟรมแรก ๆ ตามจำนวนชื่อ)
+    EXTRA = {"rat": {"attack": 4}}
+    FORMS = sys.argv[3:] or ["normal", "tiger"]
 
-for form in FORMS:
-    scale = None
-    for sheet in ["poses", "walk", "attack"]:  # poses ก่อน เพื่อใช้ท่ายืนเป็นตัวกำหนดขนาด
-        names, ref, mode = SHEETS[sheet]
-        count = max(len(names), EXTRA.get(form, {}).get(sheet, 0))
-        src_name = f"naksat_{form}" if form.startswith("heroine_") else f"naksat_hero_{form}"
-        frames = split_frames(key_out(Image.open(f"{SRC}/{src_name}_{sheet}.png")), count)[: len(names)]
-        if ref is not None:
-            sheet_scale = STAND_H / frames[ref].shape[0]
-            if sheet == "poses":
-                scale = sheet_scale
-        else:
-            sheet_scale = scale  # ชีตท่าตีไม่มีท่ายืนตรง ใช้สัดส่วนเดียวกับท่ายืน
-        for name, fr in zip(names, frames):
-            ax = anchor_x(fr, mode)
-            im = Image.fromarray(fr, "RGBA")
-            im = im.resize((max(1, round(im.width * sheet_scale)), max(1, round(im.height * sheet_scale))), Image.LANCZOS)
-            canvas = Image.new("RGBA", CANVAS, (0, 0, 0, 0))
-            canvas.alpha_composite(im, (round(CANVAS[0] / 2 - ax * sheet_scale), CANVAS[1] - im.height))
-            out_name = form if form.startswith("heroine_") else f"hero_{form}"
-            canvas.save(f"{OUT}/{out_name}_{name}.png")
-        print(form, sheet, [f.shape[:2] for f in frames], "scale %.3f" % sheet_scale)
+    for form in FORMS:
+        scale = None
+        for sheet in ["poses", "walk", "attack"]:  # poses ก่อน เพื่อใช้ท่ายืนเป็นตัวกำหนดขนาด
+            names, ref, mode = SHEETS[sheet]
+            count = max(len(names), EXTRA.get(form, {}).get(sheet, 0))
+            src_name = f"naksat_{form}" if form.startswith("heroine_") else f"naksat_hero_{form}"
+            frames = split_frames(key_out(Image.open(f"{SRC}/{src_name}_{sheet}.png")), count)[: len(names)]
+            if ref is not None:
+                sheet_scale = STAND_H / frames[ref].shape[0]
+                if sheet == "poses":
+                    scale = sheet_scale
+            else:
+                sheet_scale = scale  # ชีตท่าตีไม่มีท่ายืนตรง ใช้สัดส่วนเดียวกับท่ายืน
+            for name, fr in zip(names, frames):
+                ax = anchor_x(fr, mode)
+                im = Image.fromarray(fr, "RGBA")
+                im = im.resize((max(1, round(im.width * sheet_scale)), max(1, round(im.height * sheet_scale))), Image.LANCZOS)
+                canvas = Image.new("RGBA", CANVAS, (0, 0, 0, 0))
+                canvas.alpha_composite(im, (round(CANVAS[0] / 2 - ax * sheet_scale), CANVAS[1] - im.height))
+                out_name = form if form.startswith("heroine_") else f"hero_{form}"
+                canvas.save(f"{OUT}/{out_name}_{name}.png")
+            print(form, sheet, [f.shape[:2] for f in frames], "scale %.3f" % sheet_scale)

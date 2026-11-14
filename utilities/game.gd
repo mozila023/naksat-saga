@@ -419,14 +419,15 @@ func sell_materials() -> int:
 
 
 ## ให้ EXP และโปรยของดรอปตรงจุดที่ศัตรูตาย
-func give_rewards(kind: String, pos: Vector2) -> void:
+func give_rewards(kind: String, pos: Vector2, exp_mult := 1.0) -> void:
 	if not REWARDS.has(kind):
 		return
 	var r: Dictionary = REWARDS[kind]
-	add_exp(int(r["exp"]))
+	var gained := int(round(float(r["exp"]) * exp_mult))  # มอนสเตอร์เลเวลสูงให้ EXP มากขึ้น
+	add_exp(gained)
 	if main == null or main.stage == null:
 		return
-	spawn_number(pos + Vector2(-10, -70), "+%d EXP" % int(r["exp"]), Color(0.7, 0.9, 1.0), 20)
+	spawn_number(pos + Vector2(-10, -70), "+%d EXP" % gained, Color(0.7, 0.9, 1.0), 20)
 	for i in randi_range(int(r["coins"][0]), int(r["coins"][1])):
 		Pickup.spawn(main.stage, pos, "coin", randi_range(int(r["coin_value"][0]), int(r["coin_value"][1])))
 	for d in r["drops"]:
@@ -434,9 +435,9 @@ func give_rewards(kind: String, pos: Vector2) -> void:
 			Pickup.spawn(main.stage, pos, d[0], 1)
 
 
-func on_enemy_killed(kind: String, pos := Vector2.INF) -> void:
+func on_enemy_killed(kind: String, pos := Vector2.INF, exp_mult := 1.0) -> void:
 	if pos != Vector2.INF:
-		give_rewards(kind, pos)
+		give_rewards(kind, pos, exp_mult)
 	if quest_stage == 1 and kind == "frog":
 		frog_kills += 1
 		if frog_kills >= FROGS_NEEDED:

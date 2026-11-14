@@ -68,7 +68,7 @@ func current_texture() -> Texture2D:
 
 func _load_frames(prefix: String) -> void:
 	_frames.clear()
-	for anim in [["idle", 1], ["walk", 4], ["attack", 3], ["jump", 1], ["fall", 1], ["land", 1]]:
+	for anim in [["idle", 1], ["walk", 6], ["attack", 3], ["jump", 1], ["fall", 1], ["land", 1]]:
 		var list: Array = []
 		for i in int(anim[1]):
 			var path := "%s%s_%d.png" % [prefix, anim[0], i]
@@ -128,8 +128,8 @@ func _update_frames(delta: float) -> void:
 	elif _land_t > 0.0:
 		tex = _frames["land"][0]
 	elif moving:
-		_walk_t += delta * (13.0 if running else 8.5)
-		tex = _frames["walk"][int(_walk_t) % 4]
+		_walk_t += delta * (13.0 if running else 8.5) * _frames["walk"].size() / 4.0  # เฟรมมากขึ้น เปลี่ยนเร็วขึ้น ก้าวเท่าเดิม
+		tex = _frames["walk"][int(_walk_t) % _frames["walk"].size()]  # เดินได้ 4-6 เฟรม (มีเท่าไรใช้เท่านั้น)
 		pos.y -= absf(sin(_walk_t * PI)) * 2.0
 		rot = 0.07 if running else 0.0
 	else:

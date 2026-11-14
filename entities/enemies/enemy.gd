@@ -3,8 +3,8 @@ class_name Enemy extends CharacterBody2D
 
 const GRAVITY := 1800.0
 const KINDS := {
-	"frog": {"name": "กบนา", "hp": 32.0, "dmg": 8.0, "speed": 75.0, "size": Vector2(58, 48), "sprite": "res://assets/art/frog.png"},
-	"mushroom": {"name": "เห็ดพิษ", "hp": 75.0, "dmg": 13.0, "speed": 55.0, "size": Vector2(56, 72), "sprite": "res://assets/art/mushroom.png"},
+	"frog": {"name": "กบนา", "lv": [1, 4], "hp": 32.0, "dmg": 8.0, "speed": 75.0, "size": Vector2(58, 48), "sprite": "res://assets/art/frog.png"},
+	"mushroom": {"name": "เห็ดพิษ", "lv": [5, 9], "hp": 75.0, "dmg": 13.0, "speed": 55.0, "size": Vector2(56, 72), "sprite": "res://assets/art/mushroom.png"},
 }
 
 var kind := "frog"
@@ -13,6 +13,7 @@ var roam := 200.0
 var hp := 30.0
 var max_hp := 30.0
 var facing := -1
+var level := 1  # เลเวลของมอนสเตอร์ (สุ่มในช่วง "lv" ของแต่ละชนิด) ยิ่งสูงยิ่งอึด ตีแรง และให้ EXP มาก
 
 var _stats := {}
 var _dir := -1
@@ -36,7 +37,12 @@ func _init() -> void:
 
 func _ready() -> void:
 	add_to_group("enemies")
-	_stats = KINDS[kind]
+	_stats = KINDS[kind].duplicate()
+	var lv_range: Array = _stats["lv"]
+	level = randi_range(int(lv_range[0]), int(lv_range[1]))
+	var step := level - int(lv_range[0])
+	_stats["hp"] = _stats["hp"] * (1.0 + 0.25 * step)
+	_stats["dmg"] = _stats["dmg"] * (1.0 + 0.12 * step)
 	max_hp = _stats["hp"]
 	hp = max_hp
 	home_x = global_position.x
@@ -63,6 +69,11 @@ func _ready() -> void:
 			_tex[pose] = load(path)
 	if _tex.size() != poses.size():
 		_tex.clear()
+
+
+## ตัวคูณ EXP ตามเลเวล (เลเวลต่ำสุดของชนิด = 1 เท่า, เพิ่มเลเวลละ 30%)
+func exp_mult() -> float:
+	return 1.0 + 0.3 * (level - int(_stats["lv"][0]))
 
 
 func is_alive() -> bool:
@@ -146,7 +157,7 @@ func take_hit(dmg: float, dir: float, stun: float) -> void:
 		_dying = true
 		Sound.play("enemy_die", 0.08)
 		remove_from_group("enemies")
-		Game.on_enemy_killed(kind, global_position)
+		Game.on_enemy_killed(kind, global_position, exp_mult())
 
 
 func _draw() -> void:
@@ -182,9 +193,18 @@ func _draw() -> void:
 		_sprite.rotation = 0.0
 	Art.shadow(self, Vector2(0, 2), 28.0)
 
+	# ป้ายเลเวลเหนือหัว: สีแดงเมื่อเลเวลสูงกว่าผู้เล่น
+	if not _dying:
+		var font := ThemeDB.fallback_font
+		var txt := "Lv.%d" % level
+		var fy: float = -_stats["size"].y - 12.0
+		var col := Color(1.0, 0.45, 0.4) if level > Game.level else Color(1.0, 0.97, 0.8)
+		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		draw_string_outline(font, Vector2(-w * 0.5, fy), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 4, Color(0.15, 0.1, 0.08, 0.9))
+		draw_string(font, Vector2(-w * 0.5, fy), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, col)
 	# หลอดเลือด (แสดงเมื่อโดนตีแล้ว)
 	if hp < max_hp and not _dying:
-		var top_y: float = -_stats["size"].y - 30.0
+		var top_y: float = -_stats["size"].y - 42.0
 		Art.rrect(self, Rect2(-26, top_y, 52, 9), Color(0.2, 0.12, 0.1, 0.85), 4.5)
 		Art.rrect(self, Rect2(-24, top_y + 2, 48.0 * clampf(hp / max_hp, 0.0, 1.0), 5), Color(0.98, 0.4, 0.4), 2.5)
 	if _stun > 0.5:
