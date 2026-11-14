@@ -146,6 +146,9 @@ func form_for(id: String) -> Dictionary:
 			var path: String = g["outfit"].get(key, "")
 			if path != "":
 				g["outfit"][key] = path.replace("/hero_", "/heroine_")
+		# ท่าจับอาวุธของตัวผู้หญิงอยู่คนละตำแหน่งกับตัวผู้ชาย
+		if g["outfit"].has("grip"):
+			g["outfit"]["grip"] = str(g["outfit"]["grip"]) + "_girl"
 		_girl_forms[id] = g
 	return _girl_forms[id]
 
