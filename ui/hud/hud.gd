@@ -43,6 +43,7 @@ var _mute_btn: Button
 var _speaker: SpeakerIcon
 var _full_btn: Button
 var _full_icon: FullscreenIcon
+var _tip: ItemTip
 var _skill_holder: Control
 var _hot_holder: Control
 var _touch_root: Control
@@ -102,6 +103,8 @@ func _ready() -> void:
 	_refresh_hp()
 	_refresh_form()
 	_refresh_quest()
+	_tip = ItemTip.new()
+	_root.add_child(_tip)  # อยู่บนสุด ทับหน้าต่างอื่น
 	get_viewport().size_changed.connect(_on_screen_resized)
 	_on_screen_resized.call_deferred()
 
@@ -341,6 +344,7 @@ class HotSlot extends Panel:
 		_count.size = Vector2(52, 20)
 		_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		add_child(_count)
+		hud.tip_on(self, func() -> String: return Game.hotbar[index])
 		refresh()
 
 	func refresh() -> void:
@@ -355,7 +359,6 @@ class HotSlot extends Panel:
 			_icon.texture = load("res://assets/art/items/item_%s.png" % Game.ITEMS[id]["icon"])
 			_icon.modulate = Color.WHITE if n > 0 else Color(1, 1, 1, 0.35)
 			_count.text = "x%d" % n
-			tooltip_text = Game.ITEMS[id]["name"]
 
 	func _gui_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.pressed:
@@ -399,6 +402,7 @@ class EquipSlot extends Panel:
 		_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		_name.clip_text = true
 		add_child(_name)
+		hud.tip_on(self, func() -> String: return Game.equipped.get(slot, ""))
 		refresh()
 
 	func refresh() -> void:
@@ -705,6 +709,7 @@ func _fill_shop() -> void:
 		box.add_child(_label("  ".join(bits), 15, Color(0.45, 0.35, 0.25), 0))
 		row.add_child(box)
 		row.add_child(_action_button("ซื้อ", Game.money >= int(info["buy"]), _do_buy.bind(id)))
+		tip_on(row, func() -> String: return id)
 		_shop_list.add_child(row)
 
 
@@ -731,6 +736,7 @@ func _fill_sell() -> void:
 		var all := _action_button("ขายหมด", true, _do_sell.bind(id, -1))
 		all.custom_minimum_size = Vector2(100, 46)
 		row.add_child(all)
+		tip_on(row, func() -> String: return id)
 		_shop_list.add_child(row)
 	if not any:
 		_shop_list.add_child(_label("ไม่มีของที่ขายได้", 19, Color(0.6, 0.5, 0.4), 0))
@@ -802,6 +808,9 @@ func _fill_craft() -> void:
 		b.add_theme_color_override("font_disabled_color", Color(0.65, 0.6, 0.55))
 		b.pressed.connect(_do_craft.bind(r))
 		row.add_child(b)
+		# รายละเอียดของที่จะได้ (ของทั่วไปแสดงค่าแบบธรรมดา คุณภาพสุ่มตอนตี)
+		var result: String = r["key"] if r["zodiac"] != "" else "%s__q1" % r["key"]
+		tip_on(row, func() -> String: return result, "" if r["zodiac"] != "" else "คุณภาพสุ่มตอนตี: หายาก x1.35  สุดยอด x1.8  ตำนาน x2.5")
 		_craft_list.add_child(row)
 
 
@@ -845,8 +854,20 @@ func _toggle_fullscreen() -> void:
 	_full_icon.queue_redraw()
 
 
+## ให้ตัวควบคุมนี้แสดงรายละเอียดไอเทมเมื่อชี้เมาส์/แตะ (get_id = ฟังก์ชันคืนรหัสไอเทมตอนนั้น "" = ไม่มี)
+func tip_on(ctrl: Control, get_id: Callable, extra := "") -> void:
+	if ctrl.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		ctrl.mouse_filter = Control.MOUSE_FILTER_PASS
+	ctrl.mouse_entered.connect(func() -> void:
+		var id: String = get_id.call()
+		if id != "":
+			_tip.show_item(id, ctrl, extra))
+	ctrl.mouse_exited.connect(func() -> void: _tip.hide_tip(ctrl))
+
+
 ## ปิดหน้าต่างที่เปิดอยู่ทั้งหมด (กด ESC) คืนค่า true ถ้ามีหน้าต่างถูกปิด
 func close_windows() -> bool:
+	_tip.hide_tip()
 	var any := _bag.visible or _craft.visible or _shop.visible
 	if _craft.visible:
 		close_craft()
@@ -913,6 +934,7 @@ func _fill_bag() -> void:
 		if not bonus.is_empty():
 			text += "    " + "  ".join(bonus)
 		row.add_child(_label(text, 20, item_color(id), 0))
+		tip_on(row, func() -> String: return id)
 		_bag_list.add_child(row)
 	if not any:
 		_bag_list.add_child(_label("ว่าง", 19, Color(0.6, 0.5, 0.4), 0))
@@ -1117,12 +1139,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # ---------- อัปเดตทุกเฟรม ----------
 
+func _input(event: InputEvent) -> void:
+	# ESC ปิดทุกหน้าต่าง
+	if event.is_action_pressed("ui_cancel") and close_windows():
+		get_viewport().set_input_as_handled()
+
+
 func _process(delta: float) -> void:
 	_dlg_delay = maxf(_dlg_delay - delta, 0.0)
 	if Input.is_action_just_pressed("mute"):
 		_toggle_mute()
-	if Input.is_action_just_pressed("ui_cancel"):
-		close_windows()
 	if Input.is_action_just_pressed("bag") and not Game.in_dialogue:
 		if _craft.visible or _shop.visible:
 			close_craft()

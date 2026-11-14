@@ -37,6 +37,19 @@ func tap(action: String) -> void:
 	await frames(3)
 
 
+func esc() -> void:
+	var ev := InputEventAction.new()
+	ev.action = "ui_cancel"
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	await frames(3)
+	ev = InputEventAction.new()
+	ev.action = "ui_cancel"
+	ev.pressed = false
+	Input.parse_input_event(ev)
+	await frames(3)
+
+
 func talk_through() -> void:
 	await frames(20)  # เผื่อเพิ่งปิดบทสนทนาก่อนหน้า (กันกดคุยซ้ำทันที)
 	await tap("interact")
@@ -192,6 +205,14 @@ func _ready() -> void:
 	await tap("bag")
 	check(main.hud._bag.visible, "bag opens")
 	await shot("04b_bag")
+	await frames(5)
+	var first_row: Control = main.hud._bag_list.get_child(0)
+	first_row.mouse_entered.emit()
+	await frames(5)
+	check(main.hud._tip.visible and main.hud._tip._text.text.contains(Game.ITEMS[first_row.item]["name"]), "hovering an item shows its details")
+	await shot("04g_item_tip")
+	first_row.mouse_exited.emit()
+	check(not main.hud._tip.visible, "details hide when the pointer leaves")
 	# ช่องไอเทม 1-7: ลากจากกระเป๋ามาใส่ แล้วกดเลขเพื่อใช้
 	var slot3 = main.hud._hot_slots[2]
 	var row = main.hud._bag_list.get_child(0)
@@ -220,10 +241,15 @@ func _ready() -> void:
 	check(Game.max_hp == hp_cap and Game.item_count("straw_hat") == hats, "unequip returns the item")
 	Game.add_item("straw_hat", -1)
 	main.hud._set_bag_tab("equip")
+	await frames(5)
+	main.hud._equip_slots[0].mouse_entered.emit()
+	await frames(5)
+	check(main.hud._tip.visible, "hovering an equipped item shows its details")
 	await shot("04d_equipment")
+	main.hud._equip_slots[0].mouse_exited.emit()
 	main.hud._set_bag_tab("item")
 	await shot("04c_hotbar")
-	await tap("ui_cancel")
+	await esc()
 	check(not main.hud._bag.visible and not main.hud._char.visible, "ESC closes the bag")
 	Game.add_item("potion", 1)
 	Game.set_hp(10.0)
@@ -282,7 +308,7 @@ func _ready() -> void:
 	check(Game.money > m0 and Game.item_count("frog_leg") == 0, "auntie buys items")
 	check(Game.sell_price(Crafting.part_id("rat", "fang")) == 0, "zodiac parts cannot be sold")
 	Game.add_item(Crafting.part_id("rat", "fang"), -1)
-	await tap("ui_cancel")
+	await esc()
 	check(not main.hud._shop.visible, "ESC closes the shop")
 	# กระเป๋าของเยอะ: รายการต้องเลื่อนได้ ไม่ล้นกรอบ
 	for id in ["frog_dagger__q1", "mush_hat__q2", "frog_vest__q3", "frog_boots__q4", "mist_charm__q1", "sandals", "straw_hat", "pha_khao_ma", "amulet"]:
@@ -421,7 +447,7 @@ func _ready() -> void:
 	main.hud._fill_craft()
 	await frames(10)
 	await shot("05d_craft_done")
-	await tap("ui_cancel")
+	await esc()
 	check(not main.hud._craft.visible, "ESC closes the crafting window")
 	main.hud.toggle_bag()
 	main.hud._set_bag_tab("equip")

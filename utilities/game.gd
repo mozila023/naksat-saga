@@ -19,22 +19,22 @@ const FROGS_NEEDED := 5
 # buy = ราคาซื้อจากป้าศรี (0 = ไม่มีขาย), sell = ราคาที่ลุงหมูรับซื้อ (0 = ไม่รับซื้อ)
 # (ของที่คราฟได้และชิ้นส่วนนักษัตร ถูกเพิ่มเข้ามาตอนเริ่มเกม จาก Crafting.generated_items())
 var ITEMS := {
-	"potion": {"name": "ยาแดง", "desc": "ฟื้นเลือด 50 (กด F เพื่อดื่ม)", "icon": "potion", "tab": "item", "heal": 50.0, "buy": 20, "sell": 0},
-	"big_potion": {"name": "ยาแดงขวดใหญ่", "desc": "", "icon": "big_potion", "tab": "item", "heal": 150.0, "buy": 55, "sell": 0},
-	"frog_leg": {"name": "ขากบ", "desc": "ได้จากกบนา ขายให้ลุงหมูได้", "icon": "frog_leg", "tab": "etc", "buy": 0, "sell": 6},
-	"mushroom_cap": {"name": "หมวกเห็ดพิษ", "desc": "ได้จากเห็ดพิษ ขายให้ลุงหมูได้", "icon": "mushroom_cap", "tab": "etc", "buy": 0, "sell": 12},
+	"potion": {"name": "ยาแดง", "desc": "ยาสมุนไพรของป้าศรี กด F เพื่อดื่ม (ดื่มขวดเล็กก่อน)", "icon": "potion", "tab": "item", "heal": 50.0, "buy": 20, "sell": 0},
+	"big_potion": {"name": "ยาแดงขวดใหญ่", "desc": "ยาสูตรเข้มข้น ขวดเดียวหายเหนื่อย", "icon": "big_potion", "tab": "item", "heal": 150.0, "buy": 55, "sell": 0},
+	"frog_leg": {"name": "ขากบ", "desc": "ขากบอวบ ๆ ป้าศรีชอบเอาไปทำแกง", "icon": "frog_leg", "tab": "etc", "buy": 0, "sell": 6},
+	"mushroom_cap": {"name": "หมวกเห็ดพิษ", "desc": "หมวกเห็ดพิษ ลุงหมูเอาไปทำยาแก้พิษ", "icon": "mushroom_cap", "tab": "etc", "buy": 0, "sell": 12},
 	# อุปกรณ์สวมใส่: slot = ช่องที่ใส่, atk = พลังโจมตีเพิ่ม, hp = เลือดสูงสุดเพิ่ม, speed = ความเร็วเพิ่ม (0.08 = 8%)
-	"wood_sword": {"name": "ดาบไม้", "desc": "", "icon": "wood_sword", "tab": "equip", "slot": "weapon", "atk": 3.0, "buy": 40, "sell": 15},
-	"straw_hat": {"name": "งอบ", "desc": "", "icon": "straw_hat", "tab": "equip", "slot": "head", "hp": 20.0, "buy": 35, "sell": 12},
-	"pha_khao_ma": {"name": "ผ้าขาวม้า", "desc": "", "icon": "pha_khao_ma", "tab": "equip", "slot": "body", "hp": 30.0, "buy": 45, "sell": 15},
-	"sandals": {"name": "รองเท้าหนัง", "desc": "", "icon": "sandals", "tab": "equip", "slot": "feet", "speed": 0.08, "buy": 40, "sell": 12},
-	"amulet": {"name": "เหรียญนำโชค", "desc": "", "icon": "amulet", "tab": "equip", "slot": "charm", "atk": 2.0, "hp": 15.0, "buy": 150, "sell": 40},
+	"wood_sword": {"name": "ดาบไม้", "desc": "ดาบไม้ฝึกหัด เบาและถือง่าย", "icon": "wood_sword", "tab": "equip", "slot": "weapon", "atk": 3.0, "buy": 40, "sell": 15},
+	"straw_hat": {"name": "งอบ", "desc": "งอบสานกันแดด ของคู่กายชาวนา", "icon": "straw_hat", "tab": "equip", "slot": "head", "hp": 20.0, "buy": 35, "sell": 12},
+	"pha_khao_ma": {"name": "ผ้าขาวม้า", "desc": "ผ้าขาวม้าลายตาราง ใช้ได้สารพัด", "icon": "pha_khao_ma", "tab": "equip", "slot": "body", "hp": 30.0, "buy": 45, "sell": 15},
+	"sandals": {"name": "รองเท้าหนัง", "desc": "รองเท้าหนังเบา ๆ วิ่งได้ไวขึ้น", "icon": "sandals", "tab": "equip", "slot": "feet", "speed": 0.08, "buy": 40, "sell": 12},
+	"amulet": {"name": "เหรียญนำโชค", "desc": "เหรียญที่ระลึกจากวัด พกแล้วใจกล้า", "icon": "amulet", "tab": "equip", "slot": "charm", "atk": 2.0, "hp": 15.0, "buy": 150, "sell": 40},
 	"tiger_fang": {"name": "เขี้ยวพญาเสือ", "desc": "ของหายากจากพญาเสือโคร่ง", "icon": "tiger_fang", "tab": "etc", "buy": 0, "sell": 0},
-	"mist_horn": {"name": "เขาปิศาจหมอก", "desc": "", "icon": "mist_horn", "tab": "etc", "buy": 0, "sell": 0, "auntie": 60},
+	"mist_horn": {"name": "เขาปิศาจหมอก", "desc": "เขาที่หักจากยักษ์หมอกทมิฬ ยังมีหมอกดำวนอยู่", "icon": "mist_horn", "tab": "etc", "buy": 0, "sell": 0, "auntie": 60},
 	# ของดรอปหมู่บ้าน 2
-	"beetle_horn": {"name": "เขาด้วงกว่าง", "desc": "", "icon": "beetle_horn", "tab": "etc", "buy": 0, "sell": 14},
-	"bamboo_core": {"name": "แก่นไผ่", "desc": "", "icon": "bamboo_core", "tab": "etc", "buy": 0, "sell": 20},
-	"ghost_fur": {"name": "ขนผีโป่งค่าง", "desc": "", "icon": "ghost_fur", "tab": "etc", "buy": 0, "sell": 0, "auntie": 120},
+	"beetle_horn": {"name": "เขาด้วงกว่าง", "desc": "เขาด้วงที่แข็งกว่าเหล็ก ยายจันทร์บดทำผงกันหมอกได้", "icon": "beetle_horn", "tab": "etc", "buy": 0, "sell": 14},
+	"bamboo_core": {"name": "แก่นไผ่", "desc": "แก่นไผ่ที่เรืองแสงจาง ๆ เหนียวมาก", "icon": "bamboo_core", "tab": "etc", "buy": 0, "sell": 20},
+	"ghost_fur": {"name": "ขนผีโป่งค่าง", "desc": "ขนดำของผีโป่งค่าง ยังมีแสงจันทร์ติดอยู่", "icon": "ghost_fur", "tab": "etc", "buy": 0, "sell": 0, "auntie": 120},
 }
 const POTION_HEAL := 50.0
 # ของในร้านป้าศรี (เรียงตามที่แสดง)
