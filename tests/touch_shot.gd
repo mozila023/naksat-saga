@@ -27,5 +27,16 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("%s/touch_bag_%dx%d.png" % [shot_dir, s.x, s.y])
+	# กดปุ่ม × ของกระเป๋า (แบบเดียวกับแตะนิ้ว) ต้องปิดได้
+	for c in main.hud._bag.get_children():
+		if c is Button and c.text == "×":
+			c.pressed.emit()
+	await get_tree().process_frame
+	print("TOUCH close button works: ", not main.hud._bag.visible and not main.hud._char.visible)
+	main.hud._on_bag_key()
+	await get_tree().process_frame
+	main.hud._on_bag_key()
+	await get_tree().process_frame
+	print("TOUCH bag key toggles: ", not main.hud._bag.visible)
 	Game.reset_save()
 	get_tree().quit()

@@ -47,6 +47,7 @@ var _tip: ItemTip
 var _skill_holder: Control
 var _hot_holder: Control
 var _touch_root: Control
+var _touch_ui_open := false
 var _touch: Array = []  # [{action, btn, label, r, skill}]
 var _portrait := false
 var _craft: Panel
@@ -464,9 +465,10 @@ func _build_bag() -> void:
 	_bag.add_child(title)
 	_bag_stats = _label("", 18, Color(0.3, 0.18, 0.08), 0)
 	_bag_stats.position = Vector2(180, 22)
-	_bag_stats.size = Vector2(392, 26)
+	_bag_stats.size = Vector2(344, 26)
 	_bag_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_bag.add_child(_bag_stats)
+	_bag.add_child(_close_button(Vector2(540, 12), toggle_bag))
 	# แท็บ: อุปกรณ์สวมใส่ / ไอเทม / ทั่วไป
 	var tabs := [["equip", "อุปกรณ์สวมใส่"], ["item", "ไอเทม"], ["etc", "ทั่วไป"]]
 	for i in tabs.size():
@@ -508,6 +510,7 @@ func _build_char() -> void:
 	_root.add_child(_char)
 	var title := _label("ตัวละคร", 30, Color(0.85, 0.4, 0.15), 0)
 	title.position = Vector2(24, 14)
+	_char.add_child(_close_button(Vector2(250, 12), toggle_bag))
 	_char.add_child(title)
 	# รูปตัวละครร่างปัจจุบัน
 	var frame := Panel.new()
@@ -834,6 +837,29 @@ func _do_craft(r: Dictionary) -> void:
 	_fill_craft()
 
 
+## ปุ่ม × ปิดหน้าต่าง (กดได้ทั้งเมาส์และนิ้ว)
+func _close_button(pos: Vector2, on_close: Callable) -> Button:
+	var close := Button.new()
+	close.text = "×"
+	close.focus_mode = Control.FOCUS_NONE
+	close.position = pos
+	close.size = Vector2(46, 42)
+	close.add_theme_font_size_override("font_size", 30)
+	close.pressed.connect(on_close)
+	return close
+
+
+## ปุ่ม "ของ" (คีย์ I หรือปุ่มสัมผัส): เปิด/ปิดกระเป๋า หรือปิดหน้าร้าน/หน้าตีของที่เปิดอยู่
+func _on_bag_key() -> void:
+	if Game.in_dialogue:
+		return
+	if _craft.visible or _shop.visible:
+		close_craft()
+		close_shop()
+	else:
+		toggle_bag()
+
+
 func toggle_bag() -> void:
 	Sound.play("ui")
 	_bag.visible = not _bag.visible
@@ -1149,12 +1175,8 @@ func _process(delta: float) -> void:
 	_dlg_delay = maxf(_dlg_delay - delta, 0.0)
 	if Input.is_action_just_pressed("mute"):
 		_toggle_mute()
-	if Input.is_action_just_pressed("bag") and not Game.in_dialogue:
-		if _craft.visible or _shop.visible:
-			close_craft()
-			close_shop()
-		else:
-			toggle_bag()
+	if Input.is_action_just_pressed("bag"):
+		_on_bag_key()
 	# เดินออกห่างจากช่าง = ปิดหน้าคราฟ
 	if (_craft.visible or _shop.visible) and Game.player and (Input.is_action_pressed("move_left") or Input.is_action_pressed("move_right")):
 		close_craft()
@@ -1224,7 +1246,11 @@ func _build_touch() -> void:
 	for action in TOUCH_LANDSCAPE:
 		var btn := TouchScreenButton.new()
 		btn.texture_normal = tex
-		btn.action = action
+		if action == "bag":
+			# ปุ่มเปิด/ปิดหน้าต่าง: เรียกตรงจากการแตะ (ไม่รอเช็กแอ็กชันในเฟรมถัดไป ซึ่งบนมือถือบางครั้งพลาด)
+			btn.pressed.connect(_on_bag_key)
+		else:
+			btn.action = action
 		_touch_root.add_child(btn)
 		var l := _label(TOUCH_TEXT.get(action, ""), 24, Color.WHITE, 6)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1274,6 +1300,14 @@ func _layout_touch() -> void:
 func _update_touch_skills() -> void:
 	if _touch_root == null or Game.player == null:
 		return
+	# เปิดหน้าต่างอยู่ (กระเป๋า/ร้าน/ตีของ): ซ่อนปุ่มต่อสู้ไม่ให้ทับหน้าต่าง เหลือแค่ปุ่ม "ของ" ไว้ปิด
+	var ui_open := _bag.visible or _shop.visible or _craft.visible
+	if ui_open != _touch_ui_open:
+		_touch_ui_open = ui_open
+		for t in _touch:
+			var show: bool = not ui_open or t["action"] == "bag"
+			t["btn"].visible = show
+			t["label"].visible = show
 	var form := Game.current_form()
 	for t in _touch:
 		if t["skill"] < 0:
