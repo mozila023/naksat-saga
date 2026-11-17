@@ -1,0 +1,81 @@
+# สร้างเกมอัตโนมัติทุกครั้งที่ push ขึ้น main:
+#  - เว็บ (WebGL) -> เผยแพร่ที่ GitHub Pages (สาขา gh-pages)
+#  - Android (APK) -> ดาวน์โหลดได้จากหน้า Actions (Artifacts) และหน้า Releases "latest-apk"
+# ต้องมีความลับใน Settings > Secrets and variables > Actions: UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD
+name: Build Naksat Saga
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build
+  cancel-in-progress: true
+
+jobs:
+  webgl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-WebGL-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: Library-WebGL-
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: WebGL
+          buildMethod: Naksat.EditorTools.BuildScript.WebGL
+          allowDirtyBuild: true
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/WebGL
+          force_orphan: true
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Android-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: Library-Android-
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL || true
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: Android
+          buildMethod: Naksat.EditorTools.BuildScript.Android
+          allowDirtyBuild: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NaksatSaga-android
+          path: build/Android/NaksatSaga.apk
+      - name: Publish APK to the "latest-apk" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-apk
+          name: Naksat Saga (Android ล่าสุด)
+          files: build/Android/NaksatSaga.apk
+          prerelease: true

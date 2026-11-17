@@ -1,3 +1,20 @@
-.godot/
-build/
-*.translation
+# Unity สร้างเองทุกครั้ง ไม่ต้องเก็บ
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.booproj
+*.apk
+*.aab
+.vs/
+.vscode/
+.idea/
